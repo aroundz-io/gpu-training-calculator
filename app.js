@@ -110,6 +110,8 @@ const ICONS = {
   folder:     '<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.5l2 2.5H19A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5V7z"/>',
   coin:       '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.3 9.8c.5-.9 1.5-1.4 2.7-1.4 1.7 0 3 .9 3 2.1 0 2.7-5.8 1.3-5.8 4 0 1.2 1.3 2.1 3 2.1 1.2 0 2.2-.5 2.7-1.4"/>',
   database:   '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13"/><path d="M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+  refresh:    '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3.5V8h-4.5"/>',
+  rocket:     '<path d="M12 15.5c5-4 7-8.5 7-12.5-4 0-8.5 2-12.5 7L4 12.5 7.5 16l2-1.5"/><circle cx="14.5" cy="9.5" r="1.6"/><path d="M6.5 17.5c-1.5.5-2.5 3-2.5 3s2.5-1 3-2.5"/>',
 };
 function icon(name, cls = "") {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -303,6 +305,8 @@ const order = {
   gpuId: "h100", gpuCount: 8,
   storageUse: false, storageMonths: 3,
   priority: "std",
+  output: "ollama",
+  retrainFrom: null,   // {id, name} — 완료 작업 체크포인트에서 이어서 학습
 };
 
 // 처리 우선순위 — 큐 배정 순서에 따른 요금 할증
@@ -310,6 +314,17 @@ const PRIORITIES = {
   std:    { label: "표준",  mult: 1.0 },
   high:   { label: "높음",  mult: 1.15 },
   urgent: { label: "긴급",  mult: 1.3 },
+};
+
+// 결과물 형식 — llm/vision 플래그로 학습 유형별 노출 결정
+const OUTPUT_FORMATS = {
+  ollama:  { label: "Ollama 번들 (GGUF Q4 + Modelfile)", desc: "ollama create 한 줄로 설치 — 내 PC·DGX Spark 겸용, 8B ≈ 5GB", llm: true },
+  gguf_q4: { label: "GGUF Q4_K_M (경량)",                desc: "LM Studio·llama.cpp용 단일 파일, 크기 약 1/4", llm: true },
+  gguf_q8: { label: "GGUF Q8_0 (고품질 경량)",           desc: "품질 우선 경량화, 크기 약 1/2", llm: true },
+  st:      { label: "safetensors 원본",                  desc: "표준 체크포인트 (HuggingFace 호환) — 추가 변환·재학습용", llm: true, vision: true },
+  trtllm:  { label: "TensorRT-LLM FP8 엔진",             desc: "DGX·데이터센터 고성능 서빙용 (NGC 컨테이너)", llm: true },
+  onnx:    { label: "ONNX",                              desc: "범용 추론 런타임(PC·엣지)용", vision: true },
+  trt:     { label: "TensorRT 엔진",                     desc: "NVIDIA GPU 고성능 추론용", vision: true },
 };
 
 // ---------- 데이터 보관 / 스토리지 서비스 ----------
@@ -643,6 +658,65 @@ function renderFileList() {
 window.clearFiles = function() { order.files = []; order.zipFailed = null; analyzeFiles(); };
 window.setModality = function(m) { order.dataType = m; syncStep1(); renderAnalysis(); };
 
+// ---------- 재학습: 완료 작업 체크포인트에서 이어서 학습 ----------
+function syncRetrainNotice() {
+  const el = $("retrainNotice");
+  if (!order.retrainFrom) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `<div class="retention stored" style="margin:0 0 16px">${icon("refresh","sm")}<span>
+    <b>재학습 모드</b> — "${order.retrainFrom.name}"의 체크포인트에서 이어서 학습합니다 (모델·설정 자동 적용).
+    <b>새로 추가된 데이터만 업로드</b>하세요. 기존 데이터의 10~30%를 함께 섞으면 이전에 배운 내용을 잊는 것(망각)을 막을 수 있습니다.
+    <a class="tlink" onclick="cancelRetrain()">재학습 취소</a></span></div>`;
+}
+window.cancelRetrain = function() { order.retrainFrom = null; syncRetrainNotice(); };
+window.startRetrain = function(id) {
+  const j = loadJobs().find(x => x.id === id);
+  if (!j) return;
+  order.retrainFrom = { id: j.id, name: j.name };
+  if (j.task) order.task = j.task;
+  if (j.modelId) order.modelId = j.modelId;
+  if (j.vmodelId) order.vmodelId = j.vmodelId;
+  if (j.paramsB) order.paramsB = j.paramsB;
+  order.activeB = j.activeB || null;
+  if (j.precisionKey) order.precision = j.precisionKey;
+  if (j.output) order.output = j.output;
+  order.modelLabel = j.modelLabel || order.modelLabel;
+  $("jobName").value = "";
+  showView("new");
+  goStep(1);
+  syncRetrainNotice();
+};
+
+// ---------- 배포 가이드 모달 ----------
+window.closeDeploy = function() { $("deployModal").classList.remove("show"); };
+window.openDeploy = function(id) {
+  const j = loadJobs().find(x => x.id === id);
+  if (!j) return;
+  const fmt = OUTPUT_FORMATS[j.output] || OUTPUT_FORMATS.st;
+  const isLLM = !j.task || isLLMTask(j.task);
+  const nm = j.name;
+  $("deployBody").innerHTML = `
+    <p><b>${nm}</b> — 결과물 형식: <b>${fmt.label}</b><br><small style="color:var(--muted)">${fmt.desc}</small></p>
+    ${isLLM ? `
+    <h4>내 PC에서 실행 (Ollama — 권장)</h4>
+    <div class="codebox" style="margin:8px 0"><pre># 다운로드한 번들 폴더에서
+ollama create ${nm} -f Modelfile   # "설치" (1회)
+ollama run ${nm}                   # 실행 — 바로 대화 시작</pre></div>
+    <p>GGUF Q4 기준 8B ≈ 5GB — VRAM 6GB 이상 또는 CPU로도 구동됩니다. GUI를 원하면 <b>LM Studio</b>에 .gguf 파일을 드래그&드롭하세요.</p>
+    <h4>DGX Spark에서 실행</h4>
+    <p>① 같은 GGUF를 <b>Ollama(ARM64)</b>로 그대로 실행 — 128GB 통합 메모리로 70B Q4급까지 가능<br>
+    ② 고성능 서빙은 <b>TensorRT-LLM FP8 엔진</b> 형식 선택 후 NGC 컨테이너(<span style="font-family:var(--font-mono);font-size:11px">docker run</span>)로 배포</p>
+    <h4>원본이 필요할 때</h4>
+    <p><b>safetensors 원본</b>은 HuggingFace 호환 표준으로, 추가 변환(GGUF/TensorRT)과 <b>재학습의 시작점</b>이 됩니다. 스토리지 서비스에 보관해 두는 것을 권장합니다.</p>`
+    : `
+    <h4>비전/확산 모델 배포</h4>
+    <p><b>ONNX</b>는 PC·엣지 등 범용 런타임(ONNX Runtime)에서, <b>TensorRT 엔진</b>은 NVIDIA GPU에서 최고 성능으로 실행됩니다. DGX Spark에서는 TensorRT 또는 PyTorch(safetensors)로 바로 로드할 수 있습니다.</p>`}
+    <h4>다음 업데이트는?</h4>
+    <p>새 데이터가 쌓이면 이 작업의 <b>[추가 데이터 재학습]</b> 버튼으로 체크포인트에서 이어서 학습하세요. 자세한 과정은 <a class="tlink" onclick="closeDeploy();showView('guide')">데이터 가이드</a>의 재학습 섹션에 있습니다.</p>
+    <p class="terms-demo">※ 데모 — 실제 파일 변환·다운로드는 제공되지 않습니다.</p>`;
+  $("deployModal").classList.add("show");
+};
+
 // ---------- 가이드 케이스 → 위저드 프리셋 적용 ----------
 const GUIDE_CASES = {
   csbot:  { type: "text",  amount: 0.2, task: "lora",     modelId: "llama8" },
@@ -712,8 +786,20 @@ function buildStep2() {
   if (!tasks.some(t => t[0] === order.task)) order.task = tasks[0][0];
   $("wTask").innerHTML = tasks.map(([v,l]) => `<option value="${v}" ${v===order.task?"selected":""}>${l}</option>`).join("");
   buildWModel();
+  buildOutputSelect();
   echoData();
 }
+function buildOutputSelect() {
+  const kind = isLLMTask(order.task) ? "llm" : "vision";
+  const opts = Object.entries(OUTPUT_FORMATS).filter(([, f]) => f[kind]);
+  if (!opts.some(([k]) => k === order.output)) order.output = opts[0][0];
+  $("wOutput").innerHTML = opts.map(([k, f]) => `<option value="${k}" ${k===order.output?"selected":""}>${f.label}</option>`).join("");
+  $("wOutputHint").textContent = OUTPUT_FORMATS[order.output].desc;
+}
+$("wOutput").addEventListener("change", () => {
+  order.output = $("wOutput").value;
+  $("wOutputHint").textContent = OUTPUT_FORMATS[order.output].desc;
+});
 function buildWModel() {
   if (isLLMTask(order.task)) {
     const groups = [...new Set(LLM_PRESETS.map(m => m.g))];
@@ -831,6 +917,8 @@ function quoteRows() {
     <div class="qrow"><small>예상 학습 시간</small><span><b>${fmtHours(r.hours)}</b></span></div>
     <div class="qrow"><small>시간당 요금</small><span>$${fmtNum(r.price * order.gpuCount, 2)} (${g.name} $${r.price} × ${order.gpuCount})</span></div>
     <div class="qrow"><small>처리 우선순위</small><span>${prio.label}${prio.mult > 1 ? " (요금 ×" + prio.mult + ")" : ""}</span></div>
+    <div class="qrow"><small>결과물 형식</small><span>${OUTPUT_FORMATS[order.output].label}</span></div>
+    ${order.retrainFrom ? `<div class="qrow"><small>학습 방식</small><span style="color:var(--cyan)">${icon("refresh","xs")} "${order.retrainFrom.name}" 체크포인트에서 이어서 (재학습)</span></div>` : ""}
     <div class="qrow"><small>학습 비용</small><span>${fmtUsd(r.cost * prio.mult)} ≈ ${fmtNum(krw, 0)}원</span></div>
     ${storageRow}
     <div class="qrow"><small>부가세 (10%)</small><span>${fmtNum(vat, 0)}원</span></div>
@@ -861,8 +949,14 @@ function buildStep4() {
   $("payGate").style.display = user ? "none" : "flex";
   $("payFormInner").style.display = user ? "block" : "none";
   if (!$("jobName").value) {
-    $("jobName").value = order.modelLabel.replace(/[ /()×]+/g, "-").toLowerCase() + "-" +
-      (order.task === "lora" ? "lora" : order.task);
+    if (order.retrainFrom) {
+      // 재학습이면 버전 넘버링 자동 제안: name-v2, v2 → v3 …
+      const m = order.retrainFrom.name.match(/^(.*?)(?:-v(\d+))?$/);
+      $("jobName").value = m[1] + "-v" + ((parseInt(m[2]) || 1) + 1);
+    } else {
+      $("jobName").value = order.modelLabel.replace(/[ /()×]+/g, "-").toLowerCase() + "-" +
+        (order.task === "lora" ? "lora" : order.task);
+    }
   }
   syncPayBtn();
 }
@@ -924,7 +1018,8 @@ function resetWizard() {
   $("storageOpt").value = "none"; order.storageUse = false;
   $("payCard").value = ""; $("payExp").value = ""; $("payCvc").value = ""; $("payAgree").checked = false;
   $("payAgreeData").checked = false;
-  renderFileList(); syncStep1(); goStep(1);
+  order.retrainFrom = null;
+  renderFileList(); syncStep1(); syncRetrainNotice(); goStep(1);
 }
 
 /* ==========================================================================
@@ -949,6 +1044,12 @@ function createJob(q) {
     hours: q.r.hours, costUsd: q.r.cost, krwTotal: q.krwTotal,
     owner: currentUser()?.email || null, ownerName: currentUser()?.name || "게스트",
     priority: order.priority,
+    output: order.output,
+    retrainFrom: order.retrainFrom ? order.retrainFrom.name : null,
+    // 재학습 프리셋용 설정 스냅샷
+    task: order.task, modelId: order.modelId, vmodelId: order.vmodelId,
+    paramsB: order.paramsB, activeB: order.activeB, precisionKey: order.precision,
+    dataType: order.dataType,
     dataBytes: orderDataBytes(),
     storage: order.storageUse ? { months: order.storageMonths, feeKrw: q.storageKrw } : null,
     flops: q.r.flops, effPflops: order.gpuCount * q.r.tflops * q.r.mfu / 1000,
@@ -968,10 +1069,15 @@ window.deleteJob = function(id) {
 window.downloadModel = function(id) {
   const j = loadJobs().find(x => x.id === id);
   if (!j) return;
+  const fmt = OUTPUT_FORMATS[j.output] || OUTPUT_FORMATS.st;
   const meta = {
     note: "TrainLab 데모 체크포인트 메타데이터 (실제 가중치 아님)",
     job: j.name, model: j.modelLabel, task: j.taskLabel, data: j.dataLabel,
+    output_format: fmt.label,
+    retrained_from: j.retrainFrom || null,
     gpu: j.gpuName + " x " + j.gpuCount, estimated_hours: j.hours, total_flops: j.flops,
+    deploy_pc: "ollama create " + j.name + " -f Modelfile && ollama run " + j.name,
+    deploy_dgx_spark: "동일 GGUF를 Ollama(ARM64)로 실행 또는 TensorRT-LLM FP8 엔진을 NGC 컨테이너로 서빙",
   };
   const blob = new Blob([JSON.stringify(meta, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -1081,7 +1187,7 @@ function renderJobs() {
       <div class="jhead">
         <div>
           <h3>${j.name}</h3>
-          <small>${j.taskLabel} · ${j.modelLabel} · ${j.dataLabel} · ${j.gpuName} × ${j.gpuCount}${j.ownerName ? " · " + j.ownerName : ""}</small>
+          <small>${j.taskLabel} · ${j.modelLabel} · ${j.dataLabel} · ${j.gpuName} × ${j.gpuCount}${j.ownerName ? " · " + j.ownerName : ""}${j.retrainFrom ? ` · <span style="color:var(--cyan)">"${j.retrainFrom}" 재학습</span>` : ""}</small>
         </div>
         <span style="display:flex;gap:8px;align-items:center">
           ${j.priority && j.priority !== "std" ? `<span class="prio ${j.priority}">${PRIORITIES[j.priority].label} 우선순위</span>` : ""}
@@ -1106,8 +1212,11 @@ function renderJobs() {
         <div class="js">결제 금액<b>${fmtNum(j.krwTotal, 0)}원</b></div>
       </div>
       ${retentionNotice(j)}
-      <div style="margin-top:14px;display:flex;gap:8px">
-        ${j.status === "completed" ? `<button class="btn sm" onclick="downloadModel('${j.id}')">${icon("box","xs")} 모델 다운로드</button>` : ""}
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        ${j.status === "completed" ? `
+          <button class="btn sm" onclick="downloadModel('${j.id}')">${icon("box","xs")} 모델 다운로드${j.output && OUTPUT_FORMATS[j.output] ? " (" + OUTPUT_FORMATS[j.output].label.split(" ")[0] + ")" : ""}</button>
+          <button class="btn ghost sm" onclick="openDeploy('${j.id}')">${icon("rocket","xs")} 배포 가이드</button>
+          <button class="btn ghost sm" onclick="startRetrain('${j.id}')">${icon("refresh","xs")} 추가 데이터 재학습</button>` : ""}
         <button class="btn ghost sm" onclick="deleteJob('${j.id}')">삭제</button>
       </div>
     </div>`;

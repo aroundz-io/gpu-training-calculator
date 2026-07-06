@@ -115,6 +115,7 @@
   <div class="wstep" id="wstep1">
     <div class="card">
       <h2>학습 데이터 업로드</h2>
+      <div id="retrainNotice" style="display:none"></div>
       <div class="dropzone" id="dropzone">
         <div class="big" data-ic="upload" data-ic-cls="xl"></div>
         <p><b>파일 · 폴더 · ZIP 압축파일을 끌어다 놓거나 클릭해서 선택</b><br>
@@ -221,6 +222,10 @@
           </select>
         </label>
       </div>
+      <label class="field">
+        <span class="lbl"><b>결과물 형식</b><span id="wOutputHint"></span></span>
+        <select id="wOutput"></select>
+      </label>
       <div class="note" id="wDataEcho"></div>
     </div>
     <div class="wnav">
@@ -451,6 +456,43 @@ GPU 팬 소리는 마치 파도 소리 같았다. ...</pre></div>
     </div>
   </div>
 
+  <!-- 결과물·배포 가이드 -->
+  <div class="admin-2col" style="margin-top:20px">
+    <div class="card">
+      <h2>학습 결과물은 어떤 파일인가요?</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>학습 유형</th><th>결과물</th><th>크기 감각</th></tr></thead>
+        <tbody>
+          <tr><td>LoRA/QLoRA</td><td style="text-align:left">어댑터 파일 (<span style="font-family:var(--font-mono);font-size:11px">adapter_model.safetensors</span>)</td><td>수십~수백 MB</td></tr>
+          <tr><td>전체 FT/사전학습</td><td style="text-align:left">전체 가중치 (<span style="font-family:var(--font-mono);font-size:11px">model-*.safetensors</span> + 토크나이저)</td><td>8B 기준 ~16GB</td></tr>
+          <tr><td>비전/확산</td><td style="text-align:left">체크포인트 (<span style="font-family:var(--font-mono);font-size:11px">.safetensors</span> / ONNX / TensorRT)</td><td>수백 MB~7GB</td></tr>
+        </tbody>
+      </table></div>
+      <p class="gdesc" style="margin-top:12px"><b>결과물 형식은 새 학습 2단계에서 선택합니다.</b> 내 PC에서 바로 쓰려면 <b>GGUF Q4_K_M</b> 또는 <b>Ollama 번들</b>을 고르세요 — 8B 모델이 약 5GB로 줄어 일반 PC(VRAM 6GB+)에서도 돌아갑니다.</p>
+      <div class="codebox"><b>내 PC에서 실행 — Ollama (설치파일처럼 간단)</b><pre># 받은 번들(gguf + Modelfile) 폴더에서
+ollama create my-model -f Modelfile   # ← "설치"
+ollama run my-model                   # ← 실행 끝!</pre></div>
+      <div class="codebox"><b>GUI를 원하면 — LM Studio</b><pre>LM Studio 실행 → 받은 .gguf 파일을 드래그&드롭 → 바로 대화</pre></div>
+      <p class="gdesc"><b>DGX Spark에서는?</b> 같은 GGUF를 Ollama(ARM64 지원)로 그대로 실행하거나, 고성능이 필요하면 <b>TensorRT-LLM FP8 엔진</b> 형식을 선택해 NGC 컨테이너로 서빙하세요. 128GB 통합 메모리로 70B Q4급까지 로컬 구동됩니다.</p>
+    </div>
+    <div class="card">
+      <h2>추가 데이터로 재학습 (모델 업데이트)</h2>
+      <p class="gdesc">한 번 만들고 끝이 아닙니다. 새 상담 기록·새 문서가 쌓이면 <b>기존 모델에 이어서</b> 재학습하세요. 처음부터 다시 학습할 필요가 없어 시간·비용이 훨씬 적게 듭니다.</p>
+      <div class="codebox"><b>재학습 4단계</b><pre>1단계  새로 쌓인 데이터만 처음과 같은 형식(JSONL 등)으로 정리
+2단계  대시보드 → 완료된 작업의 [추가 데이터 재학습] 클릭
+       → 이전 체크포인트·모델 설정이 자동으로 이어집니다
+3단계  ★ 잊어버림 방지: 기존 데이터의 10~30%를 함께 섞기
+       에포크는 1~2로 짧게 (과하면 기존 능력이 흐려짐)
+4단계  v1과 v2를 같은 질문으로 비교 → 좋아졌을 때 교체
+       이전 버전은 스토리지 서비스에 보관해 두면 안전</pre></div>
+      <div class="gdesc" style="margin-top:6px">
+        💡 <b>정기 재학습 패턴</b> — 매주/매월 새 데이터를 모아 재학습하는 방식이 일반적입니다. LoRA면 회당 수천 원~수만 원 수준.<br>
+        ⚠️ <b>주의</b> — 재학습만 반복하면 아주 오래된 지식은 점점 옅어집니다(파국적 망각). 항상 유지해야 할 핵심 예시는 매번 데이터에 포함하세요.<br>
+        🏷️ <b>버전 관리</b> — 작업 이름을 <span style="font-family:var(--font-mono);font-size:11px">chatbot-v1, chatbot-v2</span>처럼 붙이면 재학습 시 자동으로 <b>-v2</b>가 제안됩니다.
+      </div>
+    </div>
+  </div>
+
   <!-- 규모 가이드 -->
   <div class="card" style="margin-top:20px">
     <h2>데이터 양에 따라 무엇이 달라지나요?</h2>
@@ -674,6 +716,15 @@ GPU 팬 소리는 마치 파도 소리 같았다. ...</pre></div>
 </section>
 
 </div><!-- /wrap -->
+
+<!-- 배포 가이드 모달 -->
+<div class="modal-bg" id="deployModal">
+  <div class="modal terms">
+    <h3>모델 배포 가이드</h3>
+    <div class="terms-body" id="deployBody"></div>
+    <button class="btn" onclick="closeDeploy()">확인</button>
+  </div>
+</div>
 
 <!-- FTP 대용량 전송 안내 모달 -->
 <div class="modal-bg" id="ftpModal">

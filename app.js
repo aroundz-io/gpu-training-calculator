@@ -154,12 +154,15 @@ function fmtBytes(b) {
   if (b >= 1e12) return fmtNum(b/1e12,1) + " TB";
   if (b >= 1e9)  return fmtNum(b/1e9,1) + " GB";
   if (b >= 1e6)  return fmtNum(b/1e6,1) + " MB";
-  return fmtNum(b/1e3,0) + " KB";
+  if (b >= 1e3)  return fmtNum(b/1e3,1) + " KB";
+  return fmtNum(b,0) + " B";
 }
 function fmtTokens(t) {
   if (t >= 1e12) return fmtNum(t/1e12,1) + "T 토큰";
   if (t >= 1e9)  return fmtNum(t/1e9,1) + "B 토큰";
-  return fmtNum(t/1e6,1) + "M 토큰";
+  if (t >= 1e6)  return fmtNum(t/1e6,1) + "M 토큰";
+  if (t >= 1e3)  return fmtNum(t/1e3,1) + "K 토큰";
+  return fmtNum(t,0) + " 토큰";
 }
 function fmtGflops(g) {
   if (g >= 1e6) return fmtNum(g/1e6,1) + " PFLOPs";
@@ -351,23 +354,140 @@ dz.addEventListener("drop", e => {
 $("fileInput").addEventListener("change", e => addFiles([...e.target.files]));
 
 function addFiles(list) {
-  list.forEach(f => order.files.push({ name: f.name, size: f.size }));
+  list.forEach(f => order.files.push({ name: f.name, size: f.size, file: (typeof File !== "undefined" && f instanceof File) ? f : null }));
   analyzeFiles();
 }
+function fileExt(name) { return (name.split(".").pop() || "").toLowerCase(); }
+
 function analyzeFiles() {
   order.textBytes = 0; order.imgCount = 0; order.imgBytes = 0; order.otherBytes = 0;
   order.files.forEach(f => {
-    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    const ext = fileExt(f.name);
     if (TEXT_EXT.includes(ext)) order.textBytes += f.size;
     else if (IMG_EXT.includes(ext)) { order.imgCount++; order.imgBytes += f.size; }
     else order.otherBytes += f.size;
   });
   // 유형 자동 판별: 더 큰 쪽 기준
   order.dataType = order.imgBytes > order.textBytes ? "image" : (order.textBytes > 0 ? "text" : null);
-  order.tokens = order.textBytes / BYTES_PER_TOKEN;
+  order.tokens = order.textBytes / BYTES_PER_TOKEN;   // 1차: 용량 기반 추정
   order.samples = order.imgCount;
+  order.analysis = null;
   renderFileList();
   syncStep1();
+  renderAnalysis();
+  deepAnalyze();   // 2차: 콘텐츠 샘플링 실측 (비동기)
+}
+
+// ---------- 콘텐츠 딥 분석: 샘플을 읽어 언어 구성·레코드 수·실측 토큰 환산·이미지 해상도 산출 ----------
+function scanText(s) {
+  let ascii = 0, cjk = 0, other = 0;
+  const cap = Math.min(s.length, 5e5);           // 성능: 파일당 최대 50만 자만 스캔
+  for (let i = 0; i < cap; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x7f) { if (c > 32) ascii++; }
+    else if ((c >= 0xAC00 && c <= 0xD7A3) || (c >= 0x1100 && c <= 0x11FF) ||
+             (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3040 && c <= 0x30FF)) cjk++;
+    else other++;
+  }
+  const scale = cap > 0 ? s.length / cap : 1;
+  const nl = s.indexOf("\n");
+  return {
+    ascii: ascii * scale, cjk: cjk * scale, other: other * scale,
+    lines: (s.match(/\n/g) || []).length,
+    firstLine: s.slice(0, nl > 0 ? nl : Math.min(s.length, 2000)).trim(),
+  };
+}
+function imgDims(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => { resolve([im.naturalWidth, im.naturalHeight]); URL.revokeObjectURL(url); };
+    im.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
+    im.src = url;
+  });
+}
+let analyzeRun = 0;
+async function deepAnalyze() {
+  const run = ++analyzeRun;   // 파일이 추가로 올라오면 이전 분석 결과는 폐기
+  const texts = order.files.filter(f => f.file && TEXT_EXT.includes(fileExt(f.name))).slice(0, 6);
+  const imgs  = order.files.filter(f => f.file && IMG_EXT.includes(fileExt(f.name))).slice(0, 8);
+  if (!texts.length && !imgs.length) return;
+  $("dataAnalysis").innerHTML = `<div class="note">${icon("activity","sm")} 파일 콘텐츠 분석 중…</div>`;
+
+  const a = {};
+  try {
+    if (texts.length) {
+      let sampBytes = 0, ascii = 0, cjk = 0, other = 0, lines = 0, firstLine = null;
+      for (const f of texts) {
+        const txt = await f.file.slice(0, 2e6).text();   // 파일당 앞 2MB 샘플
+        sampBytes += Math.min(f.size, 2e6);
+        const st = scanText(txt);
+        ascii += st.ascii; cjk += st.cjk; other += st.other; lines += st.lines;
+        if (!firstLine && st.firstLine) firstLine = st.firstLine;
+      }
+      // 토큰 실측: 영문 ≈ 4자/토큰, 한글·CJK ≈ 1.6자/토큰, 기타 ≈ 3자/토큰
+      const sampleTokens = ascii / 4 + cjk / 1.6 + other / 3;
+      if (sampleTokens > 0 && sampBytes > 0) {
+        a.bytesPerToken = sampBytes / sampleTokens;
+        a.tokensContent = order.textBytes / a.bytesPerToken;
+      }
+      const totalChars = Math.max(1, ascii + cjk + other);
+      a.koPct = Math.round(cjk / totalChars * 100);
+      a.enPct = Math.round(ascii / totalChars * 100);
+      if (lines > 2) {
+        a.avgRecBytes = sampBytes / lines;
+        a.records = Math.round(order.textBytes / a.avgRecBytes);
+      }
+      if (firstLine && (firstLine.startsWith("{") || firstLine.startsWith("["))) {
+        try {
+          const o = JSON.parse(firstLine);
+          const keys = Object.keys(Array.isArray(o) ? o[0] || {} : o);
+          a.jsonKeys = keys.slice(0, 4).join(", ");
+          a.sft = /instruction|messages|prompt|question|conversations/i.test(keys.join(","));
+        } catch {}
+      }
+    }
+    if (imgs.length) {
+      const dims = [];
+      for (const f of imgs) { const d = await imgDims(f.file); if (d) dims.push(d); }
+      if (dims.length) {
+        a.avgW = Math.round(dims.reduce((s, d) => s + d[0], 0) / dims.length);
+        a.avgH = Math.round(dims.reduce((s, d) => s + d[1], 0) / dims.length);
+        a.dimN = dims.length;
+      }
+      a.avgImgBytes = order.imgBytes / Math.max(1, order.imgCount);
+    }
+  } catch (e) { /* 분석 실패 시 용량 기반 추정 유지 */ }
+
+  if (run !== analyzeRun) return;   // 그 사이 파일 목록이 바뀜 → 폐기
+  order.analysis = a;
+  if (a.tokensContent && !$("manualType").value) order.tokens = a.tokensContent;
+  syncStep1();
+  renderAnalysis();
+}
+
+function renderAnalysis() {
+  const el = $("dataAnalysis");
+  if (!order.files.length) { el.innerHTML = ""; return; }
+  const a = order.analysis;
+  const fmtCounts = {};
+  order.files.forEach(f => { const e = fileExt(f.name) || "기타"; fmtCounts[e] = (fmtCounts[e] || 0) + 1; });
+  const rows = [["파일 구성", Object.entries(fmtCounts).map(([e, c]) => `.${e} ×${c}`).join(" · ")]];
+  if (a && Object.keys(a).length) {
+    if (a.records) rows.push(["레코드 수 (추정)", "약 " + fmtNum(a.records, 0) + "개"]);
+    if (a.avgRecBytes) rows.push(["평균 레코드 크기", fmtBytes(a.avgRecBytes)]);
+    if (a.jsonKeys) rows.push(["데이터 형식", (a.sft ? "지시튜닝(SFT) 형식" : "JSON 레코드") + " — 필드: " + a.jsonKeys]);
+    if (a.koPct != null) rows.push(["언어 구성 (문자 기준)", "한글·CJK " + a.koPct + "% · 영문 " + a.enPct + "% · 기타 " + Math.max(0, 100 - a.koPct - a.enPct) + "%"]);
+    if (a.bytesPerToken) rows.push(["토큰 환산 (콘텐츠 실측)", "1토큰 ≈ " + a.bytesPerToken.toFixed(1) + "바이트 → " + fmtTokens(order.tokens)]);
+    if (a.avgW) rows.push(["평균 해상도", a.avgW + "×" + a.avgH + "px (" + a.dimN + "장 샘플)"]);
+    if (a.avgImgBytes && order.imgCount) rows.push(["장당 평균 용량", fmtBytes(a.avgImgBytes)]);
+  } else {
+    rows.push(["분석 기준", "확장자·용량 기반 추정 (1토큰 ≈ 4바이트)"]);
+  }
+  el.innerHTML = `<div style="margin-top:14px">
+    <h4 style="font-family:var(--font-disp);font-size:11px;letter-spacing:.1em;color:var(--muted);margin-bottom:9px">${icon("activity","xs")} 자동 분석 결과</h4>
+    <div class="jstats" style="margin-top:0">${rows.map(([k, v]) => `<div class="js">${k}<b>${v}</b></div>`).join("")}</div>
+  </div>`;
 }
 function renderFileList() {
   const max = 8;
@@ -403,7 +523,9 @@ function syncStep1() {
     $("dsBytes").textContent = fmtBytes(isText ? order.textBytes : order.imgBytes);
     $("dsFiles").textContent = order.files.length ? order.files.length + "개 파일" : "";
     $("dsUnits").textContent = isText ? fmtTokens(order.tokens) : fmtNum(order.samples,0) + "장";
-    $("dsUnitsSub").textContent = isText ? "1토큰 ≈ 4바이트 환산" : "학습 샘플 수";
+    $("dsUnitsSub").textContent = isText
+      ? (order.analysis?.bytesPerToken ? "콘텐츠 실측 — 1토큰 ≈ " + order.analysis.bytesPerToken.toFixed(1) + "바이트" : "1토큰 ≈ 4바이트 환산")
+      : "학습 샘플 수";
   }
   $("toStep2").disabled = !has;
 }

@@ -3,133 +3,254 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPU 학습 시간 · 비용 계산기</title>
-<style>
-  :root {
-    --bg: #0b0f1a;
-    --panel: #131a2a;
-    --panel2: #1a2338;
-    --border: #263352;
-    --text: #e8edf7;
-    --muted: #8fa0c0;
-    --accent: #76b900; /* NVIDIA green */
-    --accent2: #4f8ef7;
-    --warn: #ffb84d;
-    --danger: #ff6b6b;
-    --radius: 14px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: radial-gradient(1200px 600px at 80% -10%, #16213b 0%, var(--bg) 60%);
-    color: var(--text);
-    font-family: "Pretendard", "Noto Sans KR", "Segoe UI", "Malgun Gothic", sans-serif;
-    min-height: 100vh;
-    padding: 28px 20px 60px;
-  }
-  .wrap { max-width: 1180px; margin: 0 auto; }
-  header { margin-bottom: 26px; }
-  header h1 { font-size: 26px; letter-spacing: -0.5px; }
-  header h1 span { color: var(--accent); }
-  header p { color: var(--muted); margin-top: 6px; font-size: 14px; line-height: 1.6; }
-
-  .layout { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
-
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-  }
-  .card h2 { font-size: 15px; color: var(--accent); margin-bottom: 16px; letter-spacing: 0.3px; }
-  .card + .card { margin-top: 20px; }
-
-  label.field { display: block; margin-bottom: 14px; }
-  label.field .lbl { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-  label.field .lbl b { color: var(--text); font-weight: 600; }
-  input[type="number"], select {
-    width: 100%; background: var(--panel2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 9px 12px; font-size: 14px; outline: none;
-  }
-  input[type="number"]:focus, select:focus { border-color: var(--accent2); }
-  input[type="range"] { width: 100%; accent-color: var(--accent); }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
-
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .chip {
-    background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
-    border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; transition: all .15s;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--text); }
-  .chip.on { background: rgba(118,185,0,.15); border-color: var(--accent); color: var(--accent); }
-
-  .gpu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
-  .gpu-cat { grid-column: 1 / -1; font-size: 11px; color: var(--muted); letter-spacing: 0.5px; margin-top: 6px; padding-bottom: 2px; border-bottom: 1px dashed var(--border); }
-  .gpu-cat:first-child { margin-top: 0; }
-  tr.catrow td { color: var(--accent2); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 12px 10px 6px; background: transparent !important; }
-  .gpu-item {
-    background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 12px; cursor: pointer; transition: all .15s;
-  }
-  .gpu-item:hover { border-color: var(--accent2); }
-  .gpu-item.on { border-color: var(--accent); background: rgba(118,185,0,.08); }
-  .gpu-item .nm { font-size: 13px; font-weight: 700; }
-  .gpu-item .sp { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
-
-  .results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  @media (max-width: 720px) { .results { grid-template-columns: 1fr 1fr; } }
-  .stat {
-    background: linear-gradient(160deg, var(--panel2), var(--panel));
-    border: 1px solid var(--border); border-radius: 12px; padding: 16px;
-  }
-  .stat .k { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  .stat .v { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-  .stat .v small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
-  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .stat.hl { border-color: rgba(118,185,0,.5); }
-  .stat.hl .v { color: var(--accent); }
-
-  .memwarn { margin-top: 14px; font-size: 13px; padding: 11px 14px; border-radius: 10px; line-height: 1.6; }
-  .memwarn.ok { background: rgba(118,185,0,.08); border: 1px solid rgba(118,185,0,.35); color: #b8e986; }
-  .memwarn.bad { background: rgba(255,107,107,.08); border: 1px solid rgba(255,107,107,.4); color: var(--danger); }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 10px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; }
-  th:first-child, td:first-child { text-align: left; }
-  td.gname { font-weight: 700; }
-  td.gname small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
-  tr.sel td { background: rgba(118,185,0,.06); }
-  tr.sel td.gname { color: var(--accent); }
-  td input.price {
-    width: 76px; background: var(--panel2); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 4px 7px; font-size: 12px; text-align: right;
-  }
-  .bar-cell { width: 32%; }
-  .bar-track { background: var(--panel2); border-radius: 4px; height: 10px; overflow: hidden; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 4px; transition: width .3s; }
-
-  .note { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 14px; }
-  .note b { color: var(--text); }
-  .tablewrap { overflow-x: auto; }
-</style>
+<title>TrainLab — 온라인 AI 학습 서비스</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<!-- ==================== 헤더 ==================== -->
+<div class="topbar">
+  <div class="inner">
+    <div class="logo" data-view="home">Train<span>Lab</span></div>
+    <nav class="nav">
+      <a data-view="home">홈</a>
+      <a data-view="new">새 학습</a>
+      <a data-view="dashboard">대시보드</a>
+      <a data-view="calc">비용 계산기</a>
+    </nav>
+    <span class="demo-badge">데모 모드 — 실제 결제·학습 없음</span>
+  </div>
+</div>
+
 <div class="wrap">
-  <header>
-    <h1><span>NVIDIA GPU</span> 학습 시간 · 비용 계산기</h1>
-    <p>데이터 양과 모델 속성을 입력하면 최신 NVIDIA GPU 모델별 예상 학습 시간과 클라우드 비용을 계산합니다.<br>
-    LLM은 <b>연산량 ≈ 6 × 파라미터 수 × 토큰 수</b> 근사식, 비전/생성 모델은 샘플당 FLOPs 기준으로 추정합니다.</p>
+
+<!-- ==================== 홈 (랜딩) ==================== -->
+<section class="view" id="view-home">
+  <div class="hero">
+    <h1>데이터 올리고 결제하면,<br><span>NVIDIA GPU</span>에서 바로 학습 시작</h1>
+    <p>학습 데이터를 업로드하면 모델·GPU 구성에 맞는 견적이 즉시 계산됩니다.<br>
+    결제 즉시 클러스터에 작업이 등록되고, 대시보드에서 실시간으로 학습을 지켜보세요.</p>
+    <div class="cta">
+      <button class="btn" data-view="new">지금 학습 시작하기 →</button>
+      <button class="btn ghost" data-view="calc">비용 먼저 계산해보기</button>
+    </div>
+  </div>
+
+  <div class="steps-strip">
+    <div class="st"><b>STEP 1</b><div>📁 데이터 업로드</div></div>
+    <div class="st"><b>STEP 2</b><div>🧠 모델 · 학습 설정</div></div>
+    <div class="st"><b>STEP 3</b><div>⚡ GPU 선택 · 견적</div></div>
+    <div class="st"><b>STEP 4</b><div>💳 결제 → 학습 시작</div></div>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="ic">📊</div>
+      <h3>투명한 사전 견적</h3>
+      <p>업로드한 데이터 양과 모델 크기에서 총 연산량(FLOPs)을 계산해, 학습 시작 전에 예상 시간과 비용을 원 단위로 보여드립니다. 숨은 비용이 없습니다.</p>
+    </div>
+    <div class="feature">
+      <div class="ic">⚡</div>
+      <h3>NVIDIA GPU 28종</h3>
+      <p>GB300·B200·H200·H100부터 A100, L40S, DGX Spark, GeForce까지. 예산과 일정에 맞춰 최저 비용 / 최단 시간 / 균형 구성을 추천해 드립니다.</p>
+    </div>
+    <div class="feature">
+      <div class="ic">📈</div>
+      <h3>실시간 학습 대시보드</h3>
+      <p>결제 즉시 작업이 시작됩니다. 진행률, 손실(loss) 곡선, 처리량, 로그를 실시간으로 확인하고 완료되면 학습된 모델을 내려받으세요.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>인기 GPU 시세 (온디맨드, GPU당)</h2>
+    <div class="tablewrap"><table id="homePriceTable">
+      <thead><tr><th>GPU</th><th>메모리</th><th>BF16 성능</th><th>시간당 요금</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="note">2025~2026년 주요 클라우드 온디맨드 시세 기준. 전체 28종 요금과 상세 비교는 <b>비용 계산기</b>에서 확인할 수 있습니다.</div>
+  </div>
+</section>
+
+<!-- ==================== 새 학습 (위저드) ==================== -->
+<section class="view" id="view-new">
+  <div class="stepper">
+    <div class="stp" data-step="1">1. 데이터 업로드</div>
+    <div class="stp" data-step="2">2. 모델 · 학습 설정</div>
+    <div class="stp" data-step="3">3. GPU · 견적</div>
+    <div class="stp" data-step="4">4. 결제</div>
+  </div>
+
+  <!-- STEP 1: 데이터 업로드 -->
+  <div class="wstep" id="wstep1">
+    <div class="card">
+      <h2>학습 데이터 업로드</h2>
+      <div class="dropzone" id="dropzone">
+        <div class="big">📁</div>
+        <p><b>파일을 끌어다 놓거나 클릭해서 선택</b><br>
+        텍스트: .txt .jsonl .json .csv .md &nbsp;|&nbsp; 이미지: .jpg .png .webp 등<br>
+        <small>데모 모드에서는 파일이 서버로 전송되지 않고 브라우저에서만 분석됩니다.</small></p>
+        <input type="file" id="fileInput" multiple style="display:none">
+      </div>
+      <div class="filelist" id="fileList"></div>
+      <div class="datasum" id="dataSum" style="display:none">
+        <div class="stat"><div class="k">데이터 유형</div><div class="v" id="dsType">–</div><div class="sub" id="dsTypeSub"></div></div>
+        <div class="stat"><div class="k">총 용량</div><div class="v" id="dsBytes">–</div><div class="sub" id="dsFiles"></div></div>
+        <div class="stat hl"><div class="k">학습 단위 환산</div><div class="v" id="dsUnits">–</div><div class="sub" id="dsUnitsSub"></div></div>
+      </div>
+
+      <div class="note" style="margin-top:18px"><b>파일이 아직 준비되지 않았다면</b> 아래에 데이터 양을 직접 입력할 수도 있습니다.</div>
+      <div class="row" style="margin-top:8px">
+        <label class="field">
+          <span class="lbl"><b>직접 입력 — 데이터 유형</b></span>
+          <select id="manualType">
+            <option value="">사용 안 함 (업로드 파일 기준)</option>
+            <option value="text">텍스트 (용량 GB)</option>
+            <option value="image">이미지 (장 수)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="lbl"><b>양</b><span id="manualHint"></span></span>
+          <input type="number" id="manualAmount" value="10" min="0.001" step="1">
+        </label>
+      </div>
+    </div>
+    <div class="wnav">
+      <span></span>
+      <button class="btn" id="toStep2" disabled>다음: 모델 설정 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 모델·학습 설정 -->
+  <div class="wstep" id="wstep2">
+    <div class="card">
+      <h2>모델 · 학습 설정</h2>
+      <div class="row">
+        <label class="field">
+          <span class="lbl"><b>학습 유형</b></span>
+          <select id="wTask"></select>
+        </label>
+        <label class="field">
+          <span class="lbl"><b>베이스 모델</b><span id="wModelInfo"></span></span>
+          <select id="wModel"></select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field" id="wParamsField">
+          <span class="lbl"><b>파라미터 (B)</b></span>
+          <input type="number" id="wParams" value="8" min="0.01" step="0.1">
+        </label>
+        <label class="field">
+          <span class="lbl"><b>에포크 수</b></span>
+          <input type="number" id="wEpochs" value="1" min="0.1" step="1">
+        </label>
+        <label class="field">
+          <span class="lbl"><b>연산 정밀도</b></span>
+          <select id="wPrecision">
+            <option value="bf16">BF16 (안정성 우선)</option>
+            <option value="fp8">FP8 (속도 우선, 지원 GPU)</option>
+          </select>
+        </label>
+      </div>
+      <div class="note" id="wDataEcho"></div>
+    </div>
+    <div class="wnav">
+      <button class="btn ghost" data-goto="1">← 이전</button>
+      <button class="btn" data-goto="3">다음: GPU 선택 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: GPU·견적 -->
+  <div class="wstep" id="wstep3">
+    <div class="card">
+      <h2>GPU 구성 선택 <span style="color:var(--muted);font-weight:400;font-size:12px">— 추천 배지: 💰 최저 비용 · ⚡ 최단 시간</span></h2>
+      <div class="row" style="margin-bottom:14px">
+        <label class="field">
+          <span class="lbl"><b>GPU 개수</b></span>
+          <select id="wGpuCount">
+            <option>1</option><option>2</option><option>4</option><option selected>8</option>
+            <option>16</option><option>32</option><option>64</option><option>128</option>
+          </select>
+        </label>
+        <div style="flex:2"></div>
+      </div>
+      <div class="gpu-grid wide" id="wGpuGrid"></div>
+    </div>
+    <div class="card">
+      <h2>예상 견적</h2>
+      <div class="quotebox" id="wQuote"></div>
+      <div class="memwarn ok" id="wMemWarn" style="display:none"></div>
+      <div class="note">견적은 총 FLOPs ÷ (GPU 수 × 실효 성능) 추정치이며, 실제 청구는 사용한 GPU·시간 기준입니다. MFU(실효 효율)는 구성에 따라 자동 적용됩니다.</div>
+    </div>
+    <div class="wnav">
+      <button class="btn ghost" data-goto="2">← 이전</button>
+      <button class="btn" data-goto="4">다음: 결제 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: 결제 -->
+  <div class="wstep" id="wstep4">
+    <div class="paygrid">
+      <div class="card payform">
+        <h2>결제 정보 <span style="color:var(--warn);font-size:12px;font-weight:400">— 데모 모드: 실제 결제가 이뤄지지 않습니다</span></h2>
+        <div class="cardbox">
+          <label class="field">
+            <span class="lbl"><b>카드 번호</b></span>
+            <input type="text" id="payCard" placeholder="0000 0000 0000 0000" maxlength="19" inputmode="numeric">
+          </label>
+          <div class="row">
+            <label class="field">
+              <span class="lbl"><b>유효기간</b></span>
+              <input type="text" id="payExp" placeholder="MM/YY" maxlength="5" inputmode="numeric">
+            </label>
+            <label class="field">
+              <span class="lbl"><b>CVC</b></span>
+              <input type="text" id="payCvc" placeholder="123" maxlength="3" inputmode="numeric">
+            </label>
+          </div>
+          <label class="field" style="margin-bottom:0">
+            <span class="lbl"><b>작업 이름</b></span>
+            <input type="text" id="jobName" placeholder="예: llama8b-고객상담-파인튜닝">
+          </label>
+        </div>
+        <label class="agree">
+          <input type="checkbox" id="payAgree">
+          <span>이용약관 및 환불 정책에 동의합니다. 학습 시작 후에는 사용한 GPU 시간만큼 비용이 정산되며, 미사용분은 환불됩니다. <b style="color:var(--warn)">본 사이트는 데모로, 실제 결제·GPU 프로비저닝이 일어나지 않습니다.</b></span>
+        </label>
+        <button class="btn" id="payBtn" style="width:100%" disabled>결제하고 학습 시작</button>
+      </div>
+      <div class="card">
+        <h2>주문 요약</h2>
+        <div class="quotebox" id="paySummary"></div>
+      </div>
+    </div>
+    <div class="wnav">
+      <button class="btn ghost" data-goto="3">← 이전</button>
+      <span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 대시보드 ==================== -->
+<section class="view" id="view-dashboard">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <h2 style="font-size:20px">학습 대시보드</h2>
+    <button class="btn sm" data-view="new">+ 새 학습</button>
+  </div>
+  <div id="jobList"></div>
+</section>
+
+<!-- ==================== 비용 계산기 (기존) ==================== -->
+<section class="view" id="view-calc">
+  <header style="margin-bottom:26px">
+    <h1 style="font-size:26px;letter-spacing:-0.5px"><span style="color:var(--accent)">NVIDIA GPU</span> 학습 시간 · 비용 계산기</h1>
+    <p style="color:var(--muted);margin-top:6px;font-size:14px;line-height:1.6">데이터 양과 모델 속성을 입력하면 최신 NVIDIA GPU 모델별 예상 학습 시간과 클라우드 비용을 계산합니다.<br>
+    LLM은 <b style="color:var(--text)">연산량 ≈ 6 × 파라미터 수 × 토큰 수</b> 근사식, 비전/생성 모델은 샘플당 FLOPs 기준으로 추정합니다.</p>
   </header>
 
   <div class="layout">
-    <!-- ==================== 입력 패널 ==================== -->
     <div>
       <div class="card">
         <h2>1. 학습 유형 · 데이터</h2>
-
         <label class="field">
           <span class="lbl"><b>학습 유형</b></span>
           <select id="task">
@@ -142,13 +263,11 @@
           </select>
         </label>
 
-        <!-- LLM 입력 -->
         <div id="llmInputs">
           <label class="field">
             <span class="lbl"><b>모델 프리셋 (유명 오픈소스)</b><span id="llmModelInfo"></span></span>
             <select id="llmModel"></select>
           </label>
-
           <label class="field">
             <span class="lbl"><b>모델 크기 (파라미터)</b><span id="paramLabel">7B</span></span>
             <div class="row">
@@ -160,7 +279,6 @@
             </div>
             <div class="chips" id="paramChips"></div>
           </label>
-
           <label class="field">
             <span class="lbl"><b>학습 데이터 양</b><span id="tokenLabel"></span></span>
             <div class="row">
@@ -177,7 +295,6 @@
           </label>
         </div>
 
-        <!-- 비전 입력 -->
         <div id="visionInputs" style="display:none">
           <label class="field">
             <span class="lbl"><b>모델 프리셋</b><span id="vmodelInfo"></span></span>
@@ -205,12 +322,9 @@
 
       <div class="card">
         <h2>2. 하드웨어 설정</h2>
-
         <span class="lbl" style="font-size:13px;color:var(--muted);display:block;margin-bottom:8px"><b style="color:var(--text)">기준 GPU 선택</b></span>
         <div class="gpu-grid" id="gpuGrid"></div>
-
         <div style="height:14px"></div>
-
         <div class="row">
           <label class="field">
             <span class="lbl"><b>GPU 개수</b></span>
@@ -224,13 +338,11 @@
             </select>
           </label>
         </div>
-
         <label class="field">
           <span class="lbl"><b>MFU (실효 연산 효율)</b><span id="mfuLabel">35%</span></span>
           <input type="range" id="mfu" min="10" max="60" value="35" step="1">
           <div class="note" style="margin-top:6px">실제 학습에서 GPU 이론 성능 대비 달성하는 비율입니다. 대규모 분산 학습은 보통 30~45%, 단일 GPU 소규모 학습은 40~55% 수준입니다.</div>
         </label>
-
         <label class="field">
           <span class="lbl"><b>원/달러 환율</b></span>
           <input type="number" id="fx" value="1380" min="1" step="10">
@@ -238,7 +350,6 @@
       </div>
     </div>
 
-    <!-- ==================== 결과 패널 ==================== -->
     <div>
       <div class="card">
         <h2>예상 결과 <span id="resGpuName" style="color:var(--text);font-weight:400"></span></h2>
@@ -297,456 +408,28 @@
       </div>
     </div>
   </div>
+</section>
+
+</div><!-- /wrap -->
+
+<!-- 결제 성공 모달 -->
+<div class="modal-bg" id="payModal">
+  <div class="modal">
+    <div class="big">🎉</div>
+    <h3>결제 완료 — 학습이 시작되었습니다!</h3>
+    <p id="payModalMsg"></p>
+    <button class="btn" id="payModalGo">대시보드에서 확인하기</button>
+  </div>
 </div>
 
-<script>
-// ==================== 데이터 ====================
-// bf16/fp8: dense TFLOPS (sparsity 제외), price: $/GPU-hour (온디맨드 대략치)
-// V100·T4는 BF16 미지원이라 FP16 텐서코어 수치를 사용
-const GPUS = [
-  // 데이터센터 · Blackwell
-  { id:"gb300",  name:"GB300 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell Ultra", mem:288, bf16:2250, fp8:4500, price:9.0 },
-  { id:"gb200",  name:"GB200 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:186, bf16:2500, fp8:5000, price:7.0 },
-  { id:"b200",   name:"B200 SXM",        cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:2250, fp8:4500, price:5.5 },
-  { id:"b100",   name:"B100",            cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:1750, fp8:3500, price:4.5 },
-  // 데이터센터 · Hopper
-  { id:"h200",   name:"H200 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:141, bf16:989,  fp8:1979, price:3.2 },
-  { id:"h100",   name:"H100 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:989,  fp8:1979, price:2.5 },
-  { id:"h100p",  name:"H100 PCIe",       cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:756,  fp8:1513, price:2.0 },
-  { id:"h20",    name:"H20",             cat:"데이터센터 · Hopper", arch:"Hopper", mem:96,  bf16:148,  fp8:296,  price:1.2 },
-  // 데이터센터 · Ada (L-시리즈)
-  { id:"l40s",   name:"L40S",            cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:181, fp8:362, price:1.0 },
-  { id:"l40",    name:"L40",             cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:91,  fp8:181, price:0.8 },
-  { id:"l4",     name:"L4",              cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:24, bf16:61,  fp8:121, price:0.4 },
-  // 데이터센터 · Ampere / Volta / Turing
-  { id:"a100",   name:"A100 80GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:80, bf16:312, fp8:null, price:1.4 },
-  { id:"a10040", name:"A100 40GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:40, bf16:312, fp8:null, price:1.1 },
-  { id:"a40",    name:"A40",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:48, bf16:150, fp8:null, price:0.6 },
-  { id:"a30",    name:"A30",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:165, fp8:null, price:0.7 },
-  { id:"a10",    name:"A10",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:125, fp8:null, price:0.4 },
-  { id:"v100",   name:"V100 SXM2 32GB",  cat:"데이터센터 · Ampere/Volta/Turing", arch:"Volta · FP16", mem:32, bf16:125, fp8:null, price:0.5 },
-  { id:"t4",     name:"T4",              cat:"데이터센터 · Ampere/Volta/Turing", arch:"Turing · FP16", mem:16, bf16:65, fp8:null, price:0.3 },
-  // 워크스테이션 · 개인용
-  // DGX Spark: 실측 BF16 ~100 / FP8 ~208 TFLOPS, 128GB 통합 메모리(LPDDR5x 273GB/s).
-  // 구매형($3,999)이라 단가는 3년 감가상각+전기료 환산치. 대역폭이 낮아 학습 MFU는 15~25% 권장.
-  { id:"dgxspark",   name:"DGX Spark (GB10)",       cat:"워크스테이션 · 개인용", arch:"Blackwell · 통합메모리", mem:128, bf16:100, fp8:208, price:0.2 },
-  { id:"rtxpro6000", name:"RTX PRO 6000 Blackwell", cat:"워크스테이션 · 개인용", arch:"Blackwell", mem:96, bf16:250, fp8:500, price:1.8 },
-  { id:"rtx6000ada", name:"RTX 6000 Ada",           cat:"워크스테이션 · 개인용", arch:"Ada",       mem:48, bf16:182, fp8:364, price:1.0 },
-  { id:"rtxa6000",   name:"RTX A6000",              cat:"워크스테이션 · 개인용", arch:"Ampere",    mem:48, bf16:155, fp8:null, price:0.8 },
-  // 소비자용 GeForce
-  { id:"rtx5090",  name:"RTX 5090",    cat:"소비자용 GeForce", arch:"Blackwell", mem:32, bf16:210, fp8:419, price:0.9 },
-  { id:"rtx5080",  name:"RTX 5080",    cat:"소비자용 GeForce", arch:"Blackwell", mem:16, bf16:112, fp8:225, price:0.45 },
-  { id:"rtx4090",  name:"RTX 4090",    cat:"소비자용 GeForce", arch:"Ada",       mem:24, bf16:165, fp8:330, price:0.5 },
-  { id:"rtx4080",  name:"RTX 4080",    cat:"소비자용 GeForce", arch:"Ada",       mem:16, bf16:98,  fp8:195, price:0.35 },
-  { id:"rtx3090ti",name:"RTX 3090 Ti", cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:80,  fp8:null, price:0.3 },
-  { id:"rtx3090",  name:"RTX 3090",    cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:71,  fp8:null, price:0.25 },
-];
+<footer>
+  <div class="wrap">
+    <b style="color:var(--text)">TrainLab</b> — 온라인 AI 학습 서비스 (데모)<br>
+    본 사이트는 서비스 구조 시연용 데모입니다. 파일은 서버로 전송되지 않고 브라우저에서만 분석되며, 결제는 모의 처리되고 학습 진행은 예상 소요 시간을 압축한 시뮬레이션입니다.
+    모든 시간·비용은 FLOPs 근사식 기반 추정치이며, GPU 시세는 2025~2026년 온디맨드 기준입니다.
+  </div>
+</footer>
 
-// 비전/확산 모델 프리셋: 샘플(스텝)당 순전파 GFLOPs
-const VMODELS = {
-  vision: [
-    { id:"resnet50",  name:"ResNet-50 (224px)",   gflops:4.1 },
-    { id:"convnextL", name:"ConvNeXt-L (224px)",  gflops:34.4 },
-    { id:"vitb",      name:"ViT-B/16 (224px)",    gflops:17.6 },
-    { id:"vitl",      name:"ViT-L/16 (224px)",    gflops:61.6 },
-  ],
-  diffusion: [
-    { id:"sd15",  name:"SD 1.5 U-Net (512px, 스텝당)",   gflops:350 },
-    { id:"sdxl",  name:"SDXL U-Net (1024px, 스텝당)",    gflops:1500 },
-    { id:"flux",  name:"FLUX.1 급 DiT (1024px, 스텝당)", gflops:4000 },
-  ],
-  // NVIDIA Earth-2 — 공개된 학습 비용에 맞춰 보정한 추정치
-  // FCN3: 1024×H100 78h + 512×A100 15h + 256×H100 8h ≈ 9만 GPU·시간, ERA5 1980–2016 (0.25°, 6h 간격)
-  // CorrDiff: CONUS 학습 약 5,000 A100 GPU·시간
-  earth2: [
-    { id:"fcn3",     name:"FourCastNet 3 (FCN3, 0.25° 전지구 예보)",  gflops:6.0e6,  bytes:3.0e8, defSamples:[5.4,"1e4"], defEpochs:60 },
-    { id:"corrdiff", name:"CorrDiff (km-scale 다운스케일링, CONUS)",  gflops:1.33e6, bytes:2.5e7, defSamples:[3.5,"1e4"], defEpochs:10 },
-  ],
-};
-
-const EARTH2_PRESETS = [ [1460,"ERA5 1년 (6h 간격)"], [14600,"ERA5 10년"], [54000,"ERA5 37년 (FCN3)"], [35000,"HRRR 4년 (CorrDiff)"] ];
-
-// 유명 오픈소스 LLM 프리셋 — b: 전체 파라미터(B), active: MoE 활성 파라미터(B), tokens: 사전학습 토큰 수
-const LLM_PRESETS = [
-  { g:"NVIDIA",   id:"nemotron340", name:"Nemotron-4 340B",            b:340,  tokens:9e12 },
-  { g:"NVIDIA",   id:"nemotron70",  name:"Llama-3.1-Nemotron 70B",     b:70,   tokens:15e12 },
-  { g:"NVIDIA",   id:"nemonano9",   name:"Nemotron Nano 9B",           b:9,    tokens:20e12 },
-  { g:"Meta",     id:"llama8",      name:"Llama 3.1 8B",               b:8,    tokens:15e12 },
-  { g:"Meta",     id:"llama70",     name:"Llama 3.1 70B",              b:70,   tokens:15e12 },
-  { g:"Meta",     id:"llama405",    name:"Llama 3.1 405B",             b:405,  tokens:15.6e12 },
-  { g:"DeepSeek", id:"dsv3",        name:"DeepSeek-V3 / R1 671B (MoE)",b:671,  active:37,   tokens:14.8e12 },
-  { g:"Alibaba",  id:"qwen7",       name:"Qwen2.5 7B",                 b:7.6,  tokens:18e12 },
-  { g:"Alibaba",  id:"qwen72",      name:"Qwen2.5 72B",                b:72.7, tokens:18e12 },
-  { g:"Alibaba",  id:"qwen235",     name:"Qwen3 235B (MoE)",           b:235,  active:22,   tokens:36e12 },
-  { g:"Mistral",  id:"mistral7",    name:"Mistral 7B",                 b:7.2,  tokens:8e12 },
-  { g:"Mistral",  id:"mixtral",     name:"Mixtral 8×7B (MoE)",         b:46.7, active:12.9, tokens:8e12 },
-  { g:"Google",   id:"gemma27",     name:"Gemma 3 27B",                b:27,   tokens:14e12 },
-  { g:"Microsoft",id:"phi4",        name:"Phi-4 14B",                  b:14,   tokens:9.8e12 },
-  { g:"OpenAI",   id:"gptoss120",   name:"gpt-oss 120B (MoE)",         b:117,  active:5.1,  tokens:null },
-];
-
-const BYTES_PER_TOKEN = 4;      // 평문 텍스트 기준 1토큰 ≈ 4바이트
-const BYTES_PER_IMAGE = 5e5;    // 이미지 1장 ≈ 500KB (JPEG 기준)
-
-const PARAM_PRESETS = [ [1,"1B"], [3,"3B"], [7,"7B"], [13,"13B"], [34,"34B"], [70,"70B"], [180,"180B"], [405,"405B"] ];
-const TOKEN_PRESETS = [ [1e9,"1B (≈4GB)"], [1e10,"10B (≈40GB)"], [1e11,"100B (≈0.4TB)"], [1e12,"1T (≈4TB)"], [2e12,"2T (≈8TB)"], [15e12,"15T (≈60TB)"] ];
-const IMAGE_PRESETS = [ [5e4,"5만"], [1.3e6,"130만 (ImageNet)"], [1e7,"1,000만"], [1e8,"1억"] ];
-
-const state = { gpu:"h100", prices:{}, moeActive:null };
-GPUS.forEach(g => state.prices[g.id] = g.price);
-
-const $ = id => document.getElementById(id);
-
-// ==================== 포맷 유틸 ====================
-function fmtNum(x, d=1) { return x.toLocaleString("ko-KR", { maximumFractionDigits:d }); }
-function fmtFlops(f) {
-  if (f >= 1e24) return [fmtNum(f/1e24,2), "YFLOPs(×10²⁴)"];
-  if (f >= 1e21) return [fmtNum(f/1e21,2), "ZFLOPs(×10²¹)"];
-  if (f >= 1e18) return [fmtNum(f/1e18,2), "EFLOPs(×10¹⁸)"];
-  return [fmtNum(f/1e15,2), "PFLOPs(×10¹⁵)"];
-}
-function fmtHours(h) {
-  if (!isFinite(h)) return "–";
-  if (h < 1) return fmtNum(h*60,0) + "분";
-  if (h < 48) return fmtNum(h,1) + "시간";
-  if (h < 24*365) {
-    const d = Math.floor(h/24), rem = h - d*24;
-    return d + "일 " + fmtNum(rem,0) + "시간";
-  }
-  return fmtNum(h/24/365,1) + "년";
-}
-function fmtUsd(x) {
-  if (!isFinite(x)) return "–";
-  if (x >= 1e6) return "$" + fmtNum(x/1e6,2) + "M";
-  if (x >= 1000) return "$" + fmtNum(x,0);
-  return "$" + fmtNum(x,2);
-}
-function fmtKrw(x) {
-  if (x >= 1e8) return fmtNum(x/1e8,1) + "억 원";
-  if (x >= 1e4) return fmtNum(x/1e4,0) + "만 원";
-  return fmtNum(x,0) + "원";
-}
-function fmtBytes(b) {
-  if (b >= 1e15) return fmtNum(b/1e15,1) + " PB";
-  if (b >= 1e12) return fmtNum(b/1e12,1) + " TB";
-  if (b >= 1e9)  return fmtNum(b/1e9,1) + " GB";
-  return fmtNum(b/1e6,0) + " MB";
-}
-function fmtTokens(t) {
-  if (t >= 1e12) return fmtNum(t/1e12,1) + "T 토큰";
-  if (t >= 1e9)  return fmtNum(t/1e9,1) + "B 토큰";
-  return fmtNum(t/1e6,1) + "M 토큰";
-}
-function fmtGflops(g) {
-  if (g >= 1e6) return fmtNum(g/1e6,1) + " PFLOPs";
-  if (g >= 1e3) return fmtNum(g/1e3,1) + " TFLOPs";
-  return fmtNum(g,1) + " GFLOPs";
-}
-function currentVModel() {
-  const list = VMODELS[$("task").value] || VMODELS.vision;
-  return list.find(m => m.id === $("vmodel").value) || list[0];
-}
-
-// ==================== 계산 ====================
-function totalFlops() {
-  const task = $("task").value;
-  const epochs = Math.max(0.1, parseFloat($("epochs").value) || 1);
-  if (task === "pretrain" || task === "finetune" || task === "lora") {
-    // MoE 모델은 활성 파라미터 기준으로 연산량 계산
-    const p = state.moeActive ? state.moeActive * 1e9
-            : (parseFloat($("params").value) || 0) * parseFloat($("paramUnit").value);
-    const t = (parseFloat($("tokens").value) || 0) * parseFloat($("tokenUnit").value);
-    const factor = task === "lora" ? 4 : 6;   // LoRA: 가중치 grad 생략 → ≈ 4·N·D
-    return factor * p * t * epochs;
-  } else {
-    const list = VMODELS[task];
-    const vm = list.find(m => m.id === $("vmodel").value) || list[0];
-    const n = (parseFloat($("images").value) || 0) * parseFloat($("imageUnit").value);
-    return vm.gflops * 1e9 * 3 * n * epochs;  // 학습 ≈ 순전파 × 3
-  }
-}
-
-function effTflops(gpu, precision) {
-  const t = (precision === "fp8" && gpu.fp8) ? gpu.fp8 : gpu.bf16;
-  const fellBack = precision === "fp8" && !gpu.fp8;
-  return { tflops: t, fellBack };
-}
-
-function calc(gpu) {
-  const flops = totalFlops();
-  const n = Math.max(1, parseInt($("gpuCount").value) || 1);
-  const mfu = parseInt($("mfu").value) / 100;
-  const { tflops, fellBack } = effTflops(gpu, $("precision").value);
-  const effective = n * tflops * 1e12 * mfu;           // FLOP/s
-  const hours = flops / effective / 3600;
-  const price = state.prices[gpu.id];
-  const cost = hours * n * price;
-  return { flops, hours, cost, price, n, tflops, mfu, fellBack, effPflops: effective/1e15 };
-}
-
-// LLM 전체 학습 시 대략적 필요 메모리(GB): full ≈ 18 bytes/param, LoRA ≈ 4 bytes/param (ZeRO-3 분산 가정)
-function memCheck(gpu) {
-  const task = $("task").value;
-  if (!["pretrain","finetune","lora"].includes(task)) return null;
-  const p = (parseFloat($("params").value) || 0) * parseFloat($("paramUnit").value);
-  const bytesPerParam = task === "lora" ? 4 : 18;
-  const needGB = p * bytesPerParam / 1e9;
-  const n = Math.max(1, parseInt($("gpuCount").value) || 1);
-  const haveGB = gpu.mem * n;
-  return { needGB, haveGB, ok: haveGB >= needGB * 1.2 }; // 활성값 여유분 20%
-}
-
-// ==================== 렌더링 ====================
-function updateDataLabels() {
-  // 파라미터 라벨: MoE면 활성 파라미터 병기
-  const p = (parseFloat($("params").value) || 0) * parseFloat($("paramUnit").value);
-  $("paramLabel").textContent = fmtNum(p/1e9, p < 1e9 ? 2 : 1) + "B" +
-    (state.moeActive ? " (MoE · 연산은 활성 " + state.moeActive + "B 기준)" : "");
-
-  // 토큰 라벨: 토큰 수 ↔ 텍스트 용량을 항상 병기
-  const t = (parseFloat($("tokens").value) || 0) * parseFloat($("tokenUnit").value);
-  $("tokenLabel").textContent = fmtTokens(t) + " ≈ " + fmtBytes(t * BYTES_PER_TOKEN) + " 텍스트";
-
-  // 이미지/샘플 라벨: 대략적 데이터 용량 병기 (프리셋별 샘플 크기 반영)
-  const n = (parseFloat($("images").value) || 0) * parseFloat($("imageUnit").value);
-  const vm = currentVModel();
-  const bps = vm.bytes || BYTES_PER_IMAGE;
-  $("imageLabel").textContent = "≈ " + fmtBytes(n * bps) +
-    (vm.bytes ? " (샘플당 " + fmtBytes(vm.bytes) + " 기준)" : " (장당 500KB 기준)");
-}
-
-function render() {
-  updateDataLabels();
-  const gpu = GPUS.find(g => g.id === state.gpu);
-  const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1380;
-
-  $("resGpuName").textContent = "— " + gpu.name + " × " + r.n;
-
-  const [fv, fu] = fmtFlops(r.flops);
-  $("rFlops").innerHTML = fv + " <small>" + fu + "</small>";
-  $("rFlopsSub").textContent = "MFU " + Math.round(r.mfu*100) + "% 적용, 실효 " + fmtNum(r.effPflops,1) + " PFLOP/s";
-
-  $("rTime").textContent = fmtHours(r.hours);
-  $("rTimeSub").textContent = "GPU·시간 " + fmtNum(r.hours * r.n, 0) + " (총합)" + (r.fellBack ? " · FP8 미지원→BF16" : "");
-
-  $("rCost").textContent = fmtUsd(r.cost);
-  $("rCostKrw").textContent = "약 " + fmtKrw(r.cost * fx);
-
-  $("rHourly").innerHTML = fmtUsd(r.price * r.n) + " <small>/시간</small>";
-  $("rHourlySub").textContent = gpu.name + " $" + r.price + "/시간 × " + r.n + "개";
-
-  // 메모리 경고
-  const mc = memCheck(gpu);
-  const mw = $("memWarn");
-  if (mc) {
-    mw.style.display = "block";
-    mw.className = "memwarn " + (mc.ok ? "ok" : "bad");
-    mw.innerHTML = (mc.ok ? "✅ " : "⚠️ ") +
-      "예상 필요 메모리 약 <b>" + fmtNum(mc.needGB,0) + " GB</b> (옵티마이저·그래디언트 포함, ZeRO-3 분산 가정) / 보유 " +
-      fmtNum(mc.haveGB,0) + " GB (" + gpu.name + " " + gpu.mem + "GB × " + r.n + ")" +
-      (mc.ok ? "" : " — 메모리가 부족할 수 있습니다. GPU 수를 늘리거나 QLoRA·오프로딩을 고려하세요.");
-  } else {
-    mw.style.display = "none";
-  }
-
-  renderTable();
-}
-
-function renderTable() {
-  const tbody = document.querySelector("#cmpTable tbody");
-  const rows = GPUS.map(g => ({ g, r: calc(g) }));
-  const maxCost = Math.max(...rows.map(x => x.r.cost).filter(isFinite), 1e-9);
-  const fx = parseFloat($("fx").value) || 1380;
-
-  let html = "", lastCat = null;
-  rows.forEach(({g, r}) => {
-    if (g.cat !== lastCat) { html += `<tr class="catrow"><td colspan="6">${g.cat}</td></tr>`; lastCat = g.cat; }
-    html += `
-    <tr class="${g.id === state.gpu ? "sel" : ""}" data-gpu="${g.id}">
-      <td class="gname">${g.name}<small>${g.arch} · ${g.mem}GB · BF16 ${fmtNum(g.bf16,0)} TFLOPS</small></td>
-      <td>${fmtNum(r.tflops,0)} TFLOPS${r.fellBack ? " <span style='color:var(--warn)'>(BF16 대체)</span>" : ""}</td>
-      <td>${fmtHours(r.hours)}</td>
-      <td><input class="price" type="number" step="0.1" min="0" data-price="${g.id}" value="${state.prices[g.id]}"></td>
-      <td><b>${fmtUsd(r.cost)}</b><br><small style="color:var(--muted)">${fmtKrw(r.cost*fx)}</small></td>
-      <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, r.cost/maxCost*100)}%"></div></div></td>
-    </tr>`;
-  });
-  tbody.innerHTML = html;
-
-  tbody.querySelectorAll("input.price").forEach(inp => {
-    inp.addEventListener("input", e => {
-      state.prices[e.target.dataset.price] = parseFloat(e.target.value) || 0;
-      // 표 전체를 다시 그리면 포커스를 잃으므로 결과 카드만 갱신 후 막대·비용 셀 갱신
-      renderPartialCosts();
-    });
-    inp.addEventListener("click", e => e.stopPropagation());
-  });
-  tbody.querySelectorAll("tr[data-gpu]").forEach(tr => {
-    tr.addEventListener("click", () => { state.gpu = tr.dataset.gpu; syncGpuGrid(); render(); });
-  });
-}
-
-function renderPartialCosts() {
-  const gpu = GPUS.find(g => g.id === state.gpu);
-  const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1380;
-  $("rCost").textContent = fmtUsd(r.cost);
-  $("rCostKrw").textContent = "약 " + fmtKrw(r.cost * fx);
-  $("rHourly").innerHTML = fmtUsd(r.price * r.n) + " <small>/시간</small>";
-  $("rHourlySub").textContent = gpu.name + " $" + r.price + "/시간 × " + r.n + "개";
-
-  const rows = GPUS.map(g => ({ g, r: calc(g) }));
-  const maxCost = Math.max(...rows.map(x => x.r.cost).filter(isFinite), 1e-9);
-  rows.forEach(({g, r}) => {
-    const tr = document.querySelector(`tr[data-gpu="${g.id}"]`);
-    if (!tr) return;
-    const tds = tr.querySelectorAll("td");
-    tds[4].innerHTML = `<b>${fmtUsd(r.cost)}</b><br><small style="color:var(--muted)">${fmtKrw(r.cost*fx)}</small>`;
-    tr.querySelector(".bar-fill").style.width = Math.max(2, r.cost/maxCost*100) + "%";
-  });
-}
-
-// ==================== 입력 UI 구성 ====================
-function buildChips(elId, presets, apply) {
-  $(elId).innerHTML = presets.map(([v, l], i) => `<span class="chip" data-v="${v}">${l}</span>`).join("");
-  $(elId).querySelectorAll(".chip").forEach(c => {
-    c.addEventListener("click", () => {
-      apply(parseFloat(c.dataset.v));
-      $(elId).querySelectorAll(".chip").forEach(x => x.classList.remove("on"));
-      c.classList.add("on");
-      render();
-    });
-  });
-}
-
-function syncGpuGrid() {
-  document.querySelectorAll(".gpu-item").forEach(el => el.classList.toggle("on", el.dataset.gpu === state.gpu));
-}
-
-function buildGpuGrid() {
-  let html = "", lastCat = null;
-  GPUS.forEach(g => {
-    if (g.cat !== lastCat) { html += `<div class="gpu-cat">${g.cat}</div>`; lastCat = g.cat; }
-    html += `
-    <div class="gpu-item ${g.id === state.gpu ? "on" : ""}" data-gpu="${g.id}">
-      <div class="nm">${g.name}</div>
-      <div class="sp">${g.arch} · ${g.mem}GB<br>BF16 ${fmtNum(g.bf16,0)} TFLOPS</div>
-    </div>`;
-  });
-  $("gpuGrid").innerHTML = html;
-  document.querySelectorAll(".gpu-item").forEach(el => {
-    el.addEventListener("click", () => { state.gpu = el.dataset.gpu; syncGpuGrid(); render(); });
-  });
-}
-
-function buildLLMSelect() {
-  const groups = [...new Set(LLM_PRESETS.map(m => m.g))];
-  $("llmModel").innerHTML = '<option value="custom">직접 입력</option>' +
-    groups.map(g => `<optgroup label="${g}">` +
-      LLM_PRESETS.filter(m => m.g === g).map(m => `<option value="${m.id}">${m.name}</option>`).join("") +
-      "</optgroup>").join("");
-}
-
-function onLLMModelChange() {
-  const id = $("llmModel").value;
-  const m = LLM_PRESETS.find(x => x.id === id);
-  if (!m) { // 직접 입력
-    state.moeActive = null;
-    $("llmModelInfo").textContent = "";
-    render();
-    return;
-  }
-  $("params").value = m.b;
-  $("paramUnit").value = "1e9";
-  state.moeActive = m.active || null;
-  // 사전학습이면 해당 모델의 공개된 학습 토큰 수를 기본값으로 설정
-  if ($("task").value === "pretrain" && m.tokens) {
-    if (m.tokens >= 1e12) { $("tokens").value = Math.round(m.tokens/1e12*10)/10; $("tokenUnit").value = "1e12"; }
-    else { $("tokens").value = m.tokens/1e9; $("tokenUnit").value = "1e9"; }
-  }
-  $("llmModelInfo").textContent = m.tokens ? "사전학습 " + fmtTokens(m.tokens) + " (공개 기준)" : "학습 토큰 비공개";
-  render();
-}
-
-function buildVModelSelect(task) {
-  const list = VMODELS[task] || VMODELS.vision;
-  $("vmodel").innerHTML = list.map(m => `<option value="${m.id}">${m.name}</option>`).join("");
-  updateVInfo(task);
-}
-function updateVInfo(task) {
-  const list = VMODELS[task] || VMODELS.vision;
-  const vm = list.find(m => m.id === $("vmodel").value) || list[0];
-  $("vmodelInfo").textContent = "순전파 ≈ " + fmtGflops(vm.gflops) + "/샘플";
-}
-
-// Earth-2 프리셋 선택 시 공개 학습 조건(데이터 기간·에포크)을 기본값으로 적용
-function applyEarthDefaults() {
-  const vm = currentVModel();
-  if (!vm.defSamples) return;
-  $("images").value = vm.defSamples[0];
-  $("imageUnit").value = vm.defSamples[1];
-  $("epochs").value = vm.defEpochs;
-}
-
-function onTaskChange() {
-  const task = $("task").value;
-  const isLLM = ["pretrain","finetune","lora"].includes(task);
-  $("llmInputs").style.display = isLLM ? "block" : "none";
-  $("visionInputs").style.display = isLLM ? "none" : "block";
-  if (!isLLM) {
-    buildVModelSelect(task);
-    // 라벨·단위 명칭을 카테고리에 맞게 변경
-    const isEarth = task === "earth2";
-    $("vcountLbl").textContent = isEarth ? "학습 샘플 수 (시점)" : "학습 이미지 수";
-    const noun = isEarth ? "개" : "장";
-    const units = $("imageUnit").options;
-    units[0].text = "천 " + noun; units[1].text = "만 " + noun; units[2].text = "백만 " + noun;
-    buildChips("imageChips", isEarth ? EARTH2_PRESETS : IMAGE_PRESETS, applyCount);
-    if (isEarth) applyEarthDefaults();
-  } else {
-    $("epochs").value = 1;  // LLM은 통상 1에포크 — Earth-2에서 넘어온 값이 남지 않도록 초기화
-  }
-  render();
-}
-
-// ==================== 초기화 ====================
-buildGpuGrid();
-buildLLMSelect();
-$("llmModel").addEventListener("change", onLLMModelChange);
-// 파라미터를 직접 수정하면 프리셋 해제 (MoE 활성 파라미터 기준도 초기화)
-["params","paramUnit"].forEach(id => $(id).addEventListener("input", () => {
-  $("llmModel").value = "custom"; state.moeActive = null; $("llmModelInfo").textContent = "";
-}));
-buildChips("paramChips", PARAM_PRESETS, v => {
-  $("params").value = v; $("paramUnit").value = "1e9";
-  $("llmModel").value = "custom"; state.moeActive = null; $("llmModelInfo").textContent = "";
-});
-buildChips("tokenChips", TOKEN_PRESETS, v => {
-  if (v >= 1e12) { $("tokens").value = v/1e12; $("tokenUnit").value = "1e12"; }
-  else if (v >= 1e9) { $("tokens").value = v/1e9; $("tokenUnit").value = "1e9"; }
-  else { $("tokens").value = v/1e6; $("tokenUnit").value = "1e6"; }
-});
-function applyCount(v) {
-  if (v >= 1e6) { $("images").value = v/1e6; $("imageUnit").value = "1e6"; }
-  else if (v >= 1e4) { $("images").value = v/1e4; $("imageUnit").value = "1e4"; }
-  else { $("images").value = v/1e3; $("imageUnit").value = "1e3"; }
-}
-buildChips("imageChips", IMAGE_PRESETS, applyCount);
-
-$("task").addEventListener("change", onTaskChange);
-$("vmodel").addEventListener("change", () => {
-  updateVInfo($("task").value);
-  if ($("task").value === "earth2") applyEarthDefaults();
-  render();
-});
-$("mfu").addEventListener("input", () => { $("mfuLabel").textContent = $("mfu").value + "%"; render(); });
-["params","paramUnit","tokens","tokenUnit","epochs","gpuCount","precision","fx","images","imageUnit"].forEach(id => {
-  $(id).addEventListener("input", render);
-  $(id).addEventListener("change", render);
-});
-
-render();
-</script>
+<script src="app.js" defer></script>
 </body>
 </html>

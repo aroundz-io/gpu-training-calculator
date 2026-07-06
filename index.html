@@ -648,10 +648,6 @@ ollama run my-model                   # ← 실행 끝!</pre></div>
           <input type="range" id="mfu" min="10" max="60" value="35" step="1">
           <div class="note" style="margin-top:6px">실제 학습에서 GPU 이론 성능 대비 달성하는 비율입니다. 대규모 분산 학습은 보통 30~45%, 단일 GPU 소규모 학습은 40~55% 수준입니다.</div>
         </label>
-        <label class="field">
-          <span class="lbl"><b>원/달러 환율</b></span>
-          <input type="number" id="fx" value="1540" min="1" step="10">
-        </label>
       </div>
     </div>
 
@@ -692,7 +688,7 @@ ollama run my-model                   # ← 실행 끝!</pre></div>
               <th>GPU</th>
               <th>실효 성능</th>
               <th>학습 시간</th>
-              <th>단가 ($/GPU·시간)</th>
+              <th>단가 (원/GPU·시간)</th>
               <th>총 비용</th>
               <th class="bar-cell">상대 비용</th>
             </tr>
@@ -706,9 +702,9 @@ ollama run my-model                   # ← 실행 끝!</pre></div>
           비전/확산/기상: 총 FLOPs ≈ 샘플당 순전파 FLOPs × 3(학습 배수) × 샘플 수 × 에포크.
           NVIDIA Earth-2 프리셋의 샘플당 연산량은 공개된 학습 비용(FCN3 ≈ 9만 GPU·시간 — H100 1,024개×78h 외, ERA5 1980–2016 / CorrDiff ≈ 5,000 A100 GPU·시간, CONUS)에 맞춰 보정한 추정치입니다.
           학습 시간 = 총 FLOPs ÷ (GPU 수 × 이론 TFLOPS × MFU). FP8 미지원 GPU(A100 등)는 BF16으로 자동 대체되며, BF16이 없는 V100·T4는 FP16 텐서코어 수치를 사용합니다.
-          DGX Spark는 구매형($3,999) 장비라 단가를 3년 감가상각+전기료 환산치(약 $0.2/시간)로 넣었고, 통합 메모리 대역폭(273GB/s)이 낮아 학습 시 MFU를 15~25%로 낮춰 보는 것이 현실적입니다.<br>
+          DGX Spark는 구매형(약 615만 원) 장비라 단가를 3년 감가상각+전기료 환산치(약 310원/시간)로 넣었고, 통합 메모리 대역폭(273GB/s)이 낮아 학습 시 MFU를 15~25%로 낮춰 보는 것이 현실적입니다.<br>
           <b>주의</b> — 실제 시간은 데이터 파이프라인, 통신 병목, 시퀀스 길이, 배치 크기 등에 따라 달라질 수 있는 <b>추정치</b>입니다.
-          시간당 단가는 2025~2026년 주요 클라우드(Lambda, RunPod, CoreWeave 등) 온디맨드 시세 기준 기본값이며 직접 수정할 수 있습니다.
+          시간당 단가는 2025~2026년 주요 클라우드(Lambda, RunPod, CoreWeave 등) 온디맨드 시세를 원화(1,540원/달러)로 환산한 기본값이며, 표에서 원 단위로 직접 수정할 수 있습니다.
         </div>
       </div>
     </div>
@@ -808,7 +804,7 @@ ollama run my-model                   # ← 실행 끝!</pre></div>
     <b style="color:var(--text)">데이터 보관 정책</b> — 학습 데이터는 안전하게 임시 보관되고 학습 종료 후 삭제 조치되며, 스토리지 서비스 미이용 시 학습 완료 15일 후 영구 삭제됩니다. 스토리지 서비스 이용 시 이용 기간 동안 안전하게 보관됩니다.<br>
     <b style="color:var(--text)">대용량 데이터</b> — 5GB 이상은 별도 문의(bigdata@trainlab.io)를 통해 전용 <a class="tlink" onclick="openFtp()">FTP/SFTP 전송</a>으로 처리할 수 있습니다.<br>
     본 사이트는 서비스 구조 시연용 데모입니다. 파일은 서버로 전송되지 않고 브라우저에서만 분석되며, 결제는 모의 처리되고 학습 진행은 예상 소요 시간을 압축한 시뮬레이션입니다.
-    모든 시간·비용은 FLOPs 근사식 기반 추정치이며, GPU 시세는 2025~2026년 온디맨드 기준입니다.
+    모든 시간·비용은 FLOPs 근사식 기반 추정치이며, GPU 시세는 2025~2026년 온디맨드 시세의 원화 환산(1,540원/달러) 기준입니다.
   </div>
 </footer>
 

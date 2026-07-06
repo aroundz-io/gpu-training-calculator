@@ -7,37 +7,37 @@
    ========================================================================== */
 
 // ==================== 데이터 ====================
-// bf16/fp8: dense TFLOPS (sparsity 제외), price: $/GPU-hour (온디맨드 대략치)
+// bf16/fp8: dense TFLOPS (sparsity 제외), price: 원/GPU·시간 (온디맨드 시세의 원화 환산치, 1,540원/$ 기준)
 // V100·T4는 BF16 미지원이라 FP16 텐서코어 수치를 사용
 const GPUS = [
-  { id:"gb300",  name:"GB300 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell Ultra", mem:288, bf16:2250, fp8:4500, price:9.0 },
-  { id:"gb200",  name:"GB200 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:186, bf16:2500, fp8:5000, price:7.0 },
-  { id:"b200",   name:"B200 SXM",        cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:2250, fp8:4500, price:5.5 },
-  { id:"b100",   name:"B100",            cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:1750, fp8:3500, price:4.5 },
-  { id:"h200",   name:"H200 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:141, bf16:989,  fp8:1979, price:3.2 },
-  { id:"h100",   name:"H100 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:989,  fp8:1979, price:2.5 },
-  { id:"h100p",  name:"H100 PCIe",       cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:756,  fp8:1513, price:2.0 },
-  { id:"h20",    name:"H20",             cat:"데이터센터 · Hopper", arch:"Hopper", mem:96,  bf16:148,  fp8:296,  price:1.2 },
-  { id:"l40s",   name:"L40S",            cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:181, fp8:362, price:1.0 },
-  { id:"l40",    name:"L40",             cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:91,  fp8:181, price:0.8 },
-  { id:"l4",     name:"L4",              cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:24, bf16:61,  fp8:121, price:0.4 },
-  { id:"a100",   name:"A100 80GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:80, bf16:312, fp8:null, price:1.4 },
-  { id:"a10040", name:"A100 40GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:40, bf16:312, fp8:null, price:1.1 },
-  { id:"a40",    name:"A40",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:48, bf16:150, fp8:null, price:0.6 },
-  { id:"a30",    name:"A30",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:165, fp8:null, price:0.7 },
-  { id:"a10",    name:"A10",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:125, fp8:null, price:0.4 },
-  { id:"v100",   name:"V100 SXM2 32GB",  cat:"데이터센터 · Ampere/Volta/Turing", arch:"Volta · FP16", mem:32, bf16:125, fp8:null, price:0.5 },
-  { id:"t4",     name:"T4",              cat:"데이터센터 · Ampere/Volta/Turing", arch:"Turing · FP16", mem:16, bf16:65, fp8:null, price:0.3 },
-  { id:"dgxspark",   name:"DGX Spark (GB10)",       cat:"워크스테이션 · 개인용", arch:"Blackwell · 통합메모리", mem:128, bf16:100, fp8:208, price:0.2 },
-  { id:"rtxpro6000", name:"RTX PRO 6000 Blackwell", cat:"워크스테이션 · 개인용", arch:"Blackwell", mem:96, bf16:250, fp8:500, price:1.8 },
-  { id:"rtx6000ada", name:"RTX 6000 Ada",           cat:"워크스테이션 · 개인용", arch:"Ada",       mem:48, bf16:182, fp8:364, price:1.0 },
-  { id:"rtxa6000",   name:"RTX A6000",              cat:"워크스테이션 · 개인용", arch:"Ampere",    mem:48, bf16:155, fp8:null, price:0.8 },
-  { id:"rtx5090",  name:"RTX 5090",    cat:"소비자용 GeForce", arch:"Blackwell", mem:32, bf16:210, fp8:419, price:0.9 },
-  { id:"rtx5080",  name:"RTX 5080",    cat:"소비자용 GeForce", arch:"Blackwell", mem:16, bf16:112, fp8:225, price:0.45 },
-  { id:"rtx4090",  name:"RTX 4090",    cat:"소비자용 GeForce", arch:"Ada",       mem:24, bf16:165, fp8:330, price:0.5 },
-  { id:"rtx4080",  name:"RTX 4080",    cat:"소비자용 GeForce", arch:"Ada",       mem:16, bf16:98,  fp8:195, price:0.35 },
-  { id:"rtx3090ti",name:"RTX 3090 Ti", cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:80,  fp8:null, price:0.3 },
-  { id:"rtx3090",  name:"RTX 3090",    cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:71,  fp8:null, price:0.25 },
+  { id:"gb300",  name:"GB300 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell Ultra", mem:288, bf16:2250, fp8:4500, price:13860 },
+  { id:"gb200",  name:"GB200 NVL72",     cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:186, bf16:2500, fp8:5000, price:10780 },
+  { id:"b200",   name:"B200 SXM",        cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:2250, fp8:4500, price:8470 },
+  { id:"b100",   name:"B100",            cat:"데이터센터 · Blackwell", arch:"Blackwell", mem:192, bf16:1750, fp8:3500, price:6930 },
+  { id:"h200",   name:"H200 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:141, bf16:989,  fp8:1979, price:4930 },
+  { id:"h100",   name:"H100 SXM",        cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:989,  fp8:1979, price:3850 },
+  { id:"h100p",  name:"H100 PCIe",       cat:"데이터센터 · Hopper", arch:"Hopper", mem:80,  bf16:756,  fp8:1513, price:3080 },
+  { id:"h20",    name:"H20",             cat:"데이터센터 · Hopper", arch:"Hopper", mem:96,  bf16:148,  fp8:296,  price:1850 },
+  { id:"l40s",   name:"L40S",            cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:181, fp8:362, price:1540 },
+  { id:"l40",    name:"L40",             cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:48, bf16:91,  fp8:181, price:1230 },
+  { id:"l4",     name:"L4",              cat:"데이터센터 · Ada (L-시리즈)", arch:"Ada", mem:24, bf16:61,  fp8:121, price:620 },
+  { id:"a100",   name:"A100 80GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:80, bf16:312, fp8:null, price:2160 },
+  { id:"a10040", name:"A100 40GB",       cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:40, bf16:312, fp8:null, price:1690 },
+  { id:"a40",    name:"A40",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:48, bf16:150, fp8:null, price:920 },
+  { id:"a30",    name:"A30",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:165, fp8:null, price:1080 },
+  { id:"a10",    name:"A10",             cat:"데이터센터 · Ampere/Volta/Turing", arch:"Ampere", mem:24, bf16:125, fp8:null, price:620 },
+  { id:"v100",   name:"V100 SXM2 32GB",  cat:"데이터센터 · Ampere/Volta/Turing", arch:"Volta · FP16", mem:32, bf16:125, fp8:null, price:770 },
+  { id:"t4",     name:"T4",              cat:"데이터센터 · Ampere/Volta/Turing", arch:"Turing · FP16", mem:16, bf16:65, fp8:null, price:460 },
+  { id:"dgxspark",   name:"DGX Spark (GB10)",       cat:"워크스테이션 · 개인용", arch:"Blackwell · 통합메모리", mem:128, bf16:100, fp8:208, price:310 },
+  { id:"rtxpro6000", name:"RTX PRO 6000 Blackwell", cat:"워크스테이션 · 개인용", arch:"Blackwell", mem:96, bf16:250, fp8:500, price:2770 },
+  { id:"rtx6000ada", name:"RTX 6000 Ada",           cat:"워크스테이션 · 개인용", arch:"Ada",       mem:48, bf16:182, fp8:364, price:1540 },
+  { id:"rtxa6000",   name:"RTX A6000",              cat:"워크스테이션 · 개인용", arch:"Ampere",    mem:48, bf16:155, fp8:null, price:1230 },
+  { id:"rtx5090",  name:"RTX 5090",    cat:"소비자용 GeForce", arch:"Blackwell", mem:32, bf16:210, fp8:419, price:1390 },
+  { id:"rtx5080",  name:"RTX 5080",    cat:"소비자용 GeForce", arch:"Blackwell", mem:16, bf16:112, fp8:225, price:690 },
+  { id:"rtx4090",  name:"RTX 4090",    cat:"소비자용 GeForce", arch:"Ada",       mem:24, bf16:165, fp8:330, price:770 },
+  { id:"rtx4080",  name:"RTX 4080",    cat:"소비자용 GeForce", arch:"Ada",       mem:16, bf16:98,  fp8:195, price:540 },
+  { id:"rtx3090ti",name:"RTX 3090 Ti", cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:80,  fp8:null, price:460 },
+  { id:"rtx3090",  name:"RTX 3090",    cat:"소비자용 GeForce", arch:"Ampere",    mem:24, bf16:71,  fp8:null, price:390 },
 ];
 
 // 비전/확산/기상 모델 프리셋: 샘플(스텝)당 순전파 GFLOPs
@@ -83,7 +83,6 @@ const LLM_PRESETS = [
 
 const BYTES_PER_TOKEN = 4;      // 평문 텍스트 기준 1토큰 ≈ 4바이트
 const BYTES_PER_IMAGE = 5e5;    // 이미지 1장 ≈ 500KB (JPEG 기준)
-const FX = 1540;                // 서비스 뷰 기본 환율 (계산기 뷰는 별도 입력)
 
 const TASK_LABELS = {
   pretrain:"LLM 사전학습", finetune:"LLM 전체 파인튜닝", lora:"LLM LoRA/QLoRA 파인튜닝",
@@ -286,7 +285,7 @@ $("authSubmit").addEventListener("click", () => {
       <td class="gname">${g.name}<small>${g.arch}</small></td>
       <td>${g.mem}GB</td>
       <td>${fmtNum(g.bf16,0)} TFLOPS</td>
-      <td><b>$${g.price}</b> <small style="color:var(--muted)">(약 ${fmtKrw(g.price*FX)})</small></td>
+      <td><b>${fmtNum(g.price,0)}원</b> <small style="color:var(--muted)">/시간</small></td>
     </tr>`;
   }).join("");
 })();
@@ -883,7 +882,7 @@ function buildStep3() {
                 : g.id === fastest  ? `<span class="badge b2">${icon("zap","xs")} 최단 시간</span>` : "";
     html += `<div class="gpu-item ${g.id === order.gpuId ? "on" : ""}" data-wgpu="${g.id}">${badge}
       <div class="nm">${g.name}</div>
-      <div class="sp">${g.mem}GB · $${g.price}/시간<br>${fmtHours(r.hours)} · ${fmtUsd(r.cost)}</div>
+      <div class="sp">${g.mem}GB · ${fmtNum(g.price,0)}원/시간<br>${fmtHours(r.hours)} · ${fmtKrw(r.cost)}</div>
     </div>`;
   });
   $("wGpuGrid").innerHTML = html;
@@ -902,7 +901,7 @@ function quoteRows() {
   const [fv, fu] = fmtFlops(r.flops);
   const isText = order.dataType === "text";
   const prio = PRIORITIES[order.priority];
-  const krw = Math.round(r.cost * FX * prio.mult);
+  const krw = Math.round(r.cost * prio.mult);   // GPU 단가가 원화라 비용도 원화
   const storage = storageFeeKrw();
   const vat = Math.round((krw + storage) * 0.1);
   const storageRow = order.storageUse
@@ -915,11 +914,11 @@ function quoteRows() {
     <div class="qrow"><small>총 연산량</small><span>${fv} ${fu}</span></div>
     <div class="qrow"><small>GPU 구성</small><span>${g.name} × ${order.gpuCount} (${order.precision.toUpperCase()}, MFU ${Math.round(r.mfu*100)}%)</span></div>
     <div class="qrow"><small>예상 학습 시간</small><span><b>${fmtHours(r.hours)}</b></span></div>
-    <div class="qrow"><small>시간당 요금</small><span>$${fmtNum(r.price * order.gpuCount, 2)} (${g.name} $${r.price} × ${order.gpuCount})</span></div>
+    <div class="qrow"><small>시간당 요금</small><span>${fmtNum(r.price * order.gpuCount, 0)}원 (${g.name} ${fmtNum(r.price,0)}원 × ${order.gpuCount})</span></div>
     <div class="qrow"><small>처리 우선순위</small><span>${prio.label}${prio.mult > 1 ? " (요금 ×" + prio.mult + ")" : ""}</span></div>
     <div class="qrow"><small>결과물 형식</small><span>${OUTPUT_FORMATS[order.output].label}</span></div>
     ${order.retrainFrom ? `<div class="qrow"><small>학습 방식</small><span style="color:var(--cyan)">${icon("refresh","xs")} "${order.retrainFrom.name}" 체크포인트에서 이어서 (재학습)</span></div>` : ""}
-    <div class="qrow"><small>학습 비용</small><span>${fmtUsd(r.cost * prio.mult)} ≈ ${fmtNum(krw, 0)}원</span></div>
+    <div class="qrow"><small>학습 비용</small><span>${fmtNum(krw, 0)}원</span></div>
     ${storageRow}
     <div class="qrow"><small>부가세 (10%)</small><span>${fmtNum(vat, 0)}원</span></div>
     <div class="qrow total"><span>결제 예정 금액</span><span class="amt">${fmtNum(krw + storage + vat, 0)}원</span></div>`,
@@ -1041,7 +1040,7 @@ function createJob(q) {
     dataLabel: isText ? fmtTokens(order.tokens) + " (" + fmtBytes(order.textBytes) + ")" : fmtNum(order.samples,0) + "장",
     gpuName: q.g.name, gpuCount: order.gpuCount,
     precision: order.precision.toUpperCase(), mfu: Math.round(q.r.mfu * 100),
-    hours: q.r.hours, costUsd: q.r.cost, krwTotal: q.krwTotal,
+    hours: q.r.hours, costKrw: q.r.cost, krwTotal: q.krwTotal,
     owner: currentUser()?.email || null, ownerName: currentUser()?.name || "게스트",
     priority: order.priority,
     output: order.output,
@@ -1587,7 +1586,6 @@ function render() {
   updateDataLabels();
   const gpu = GPUS.find(g => g.id === calcState.gpu);
   const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1540;
 
   $("resGpuName").textContent = "— " + gpu.name + " × " + r.n;
   const [fv, fu] = fmtFlops(r.flops);
@@ -1595,10 +1593,10 @@ function render() {
   $("rFlopsSub").textContent = "MFU " + Math.round(r.mfu*100) + "% 적용, 실효 " + fmtNum(r.effPflops,1) + " PFLOP/s";
   $("rTime").textContent = fmtHours(r.hours);
   $("rTimeSub").textContent = "GPU·시간 " + fmtNum(r.hours * r.n, 0) + " (총합)" + (r.fellBack ? " · FP8 미지원→BF16" : "");
-  $("rCost").textContent = fmtUsd(r.cost);
-  $("rCostKrw").textContent = "약 " + fmtKrw(r.cost * fx);
-  $("rHourly").innerHTML = fmtUsd(r.price * r.n) + " <small>/시간</small>";
-  $("rHourlySub").textContent = gpu.name + " $" + r.price + "/시간 × " + r.n + "개";
+  $("rCost").textContent = fmtKrw(r.cost);
+  $("rCostKrw").textContent = fmtNum(r.cost, 0) + "원";
+  $("rHourly").innerHTML = fmtNum(r.price * r.n, 0) + "원 <small>/시간</small>";
+  $("rHourlySub").textContent = gpu.name + " " + fmtNum(r.price, 0) + "원/시간 × " + r.n + "개";
 
   const mc = memCheck(gpu);
   const mw = $("memWarn");
@@ -1619,7 +1617,6 @@ function renderTable() {
   const tbody = document.querySelector("#cmpTable tbody");
   const rows = GPUS.map(g => ({ g, r: calc(g) }));
   const maxCost = Math.max(...rows.map(x => x.r.cost).filter(isFinite), 1e-9);
-  const fx = parseFloat($("fx").value) || 1540;
 
   let html = "", lastCat = null;
   rows.forEach(({g, r}) => {
@@ -1629,8 +1626,8 @@ function renderTable() {
       <td class="gname">${g.name}<small>${g.arch} · ${g.mem}GB · BF16 ${fmtNum(g.bf16,0)} TFLOPS</small></td>
       <td>${fmtNum(r.tflops,0)} TFLOPS${r.fellBack ? " <span style='color:var(--warn)'>(BF16 대체)</span>" : ""}</td>
       <td>${fmtHours(r.hours)}</td>
-      <td><input class="price" type="number" step="0.1" min="0" data-price="${g.id}" value="${calcState.prices[g.id]}"></td>
-      <td><b>${fmtUsd(r.cost)}</b><br><small style="color:var(--muted)">${fmtKrw(r.cost*fx)}</small></td>
+      <td><input class="price" type="number" step="10" min="0" data-price="${g.id}" value="${calcState.prices[g.id]}"></td>
+      <td><b>${fmtKrw(r.cost)}</b><br><small style="color:var(--muted)">${fmtNum(r.cost,0)}원</small></td>
       <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, r.cost/maxCost*100)}%"></div></div></td>
     </tr>`;
   });
@@ -1651,11 +1648,10 @@ function renderTable() {
 function renderPartialCosts() {
   const gpu = GPUS.find(g => g.id === calcState.gpu);
   const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1540;
-  $("rCost").textContent = fmtUsd(r.cost);
-  $("rCostKrw").textContent = "약 " + fmtKrw(r.cost * fx);
-  $("rHourly").innerHTML = fmtUsd(r.price * r.n) + " <small>/시간</small>";
-  $("rHourlySub").textContent = gpu.name + " $" + r.price + "/시간 × " + r.n + "개";
+  $("rCost").textContent = fmtKrw(r.cost);
+  $("rCostKrw").textContent = fmtNum(r.cost, 0) + "원";
+  $("rHourly").innerHTML = fmtNum(r.price * r.n, 0) + "원 <small>/시간</small>";
+  $("rHourlySub").textContent = gpu.name + " " + fmtNum(r.price, 0) + "원/시간 × " + r.n + "개";
 
   const rows = GPUS.map(g => ({ g, r: calc(g) }));
   const maxCost = Math.max(...rows.map(x => x.r.cost).filter(isFinite), 1e-9);
@@ -1663,7 +1659,7 @@ function renderPartialCosts() {
     const tr = document.querySelector(`tr[data-gpu="${g.id}"]`);
     if (!tr) return;
     const tds = tr.querySelectorAll("td");
-    tds[4].innerHTML = `<b>${fmtUsd(r.cost)}</b><br><small style="color:var(--muted)">${fmtKrw(r.cost*fx)}</small>`;
+    tds[4].innerHTML = `<b>${fmtKrw(r.cost)}</b><br><small style="color:var(--muted)">${fmtNum(r.cost,0)}원</small>`;
     tr.querySelector(".bar-fill").style.width = Math.max(2, r.cost/maxCost*100) + "%";
   });
 }
@@ -1797,7 +1793,7 @@ $("vmodel").addEventListener("change", () => {
   render();
 });
 $("mfu").addEventListener("input", () => { $("mfuLabel").textContent = $("mfu").value + "%"; render(); });
-["params","paramUnit","tokens","tokenUnit","epochs","gpuCount","precision","fx","images","imageUnit"].forEach(id => {
+["params","paramUnit","tokens","tokenUnit","epochs","gpuCount","precision","images","imageUnit"].forEach(id => {
   $(id).addEventListener("input", render);
   $(id).addEventListener("change", render);
 });

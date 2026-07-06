@@ -36,6 +36,7 @@
     <nav class="nav">
       <a data-view="home">홈</a>
       <a data-view="new">새 학습</a>
+      <a data-view="guide">데이터 가이드</a>
       <a data-view="dashboard">대시보드</a>
       <a data-view="calc">비용 계산기</a>
     </nav>
@@ -55,6 +56,7 @@
     결제 즉시 클러스터에 작업이 등록되고, 대시보드에서 실시간으로 학습을 지켜보세요.</p>
     <div class="cta">
       <button class="btn" data-view="new">지금 학습 시작하기 →</button>
+      <button class="btn ghost" data-view="guide">내 데이터로 뭘 만들 수 있나요?</button>
       <button class="btn ghost" data-view="calc">비용 먼저 계산해보기</button>
     </div>
   </div>
@@ -318,6 +320,171 @@
       <button class="btn ghost" data-goto="3">← 이전</button>
       <span></span>
     </div>
+  </div>
+</section>
+
+<!-- ==================== 데이터 가이드 ==================== -->
+<section class="view" id="view-guide">
+  <div class="hero" style="padding:30px 0 26px">
+    <h1 style="font-size:clamp(26px,4vw,40px)">내 데이터로 <span class="grad-text">어떤 AI</span>를 만들 수 있을까요?</h1>
+    <p style="margin:14px auto 0">코딩을 몰라도 괜찮습니다. 갖고 계신 데이터의 종류만 알면,<br>아래 예시에서 가장 비슷한 카드를 골라 그대로 시작하면 됩니다.</p>
+  </div>
+
+  <!-- 케이스 카드 -->
+  <div class="features" style="margin-top:8px">
+    <div class="feature">
+      <div class="icotile" data-ic="creditcard"></div>
+      <h3>우리 회사 전용 상담 챗봇</h3>
+      <p><b>이런 데이터가 있다면</b> — 고객센터 상담 기록, 자주 묻는 질문(FAQ), 카카오톡 상담 내보내기(CSV·엑셀·텍스트)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — "질문 → 답변" 쌍으로 정리해 8B급 모델을 <b>LoRA 파인튜닝</b>. 상담 1,000~50,000건이면 충분합니다.</p>
+      <p class="gmeta">추천: Llama 3.1 8B · LoRA · 예시 200MB → 몇만 원대</p>
+      <button class="btn sm" onclick="startCase('csbot')">이 예시로 시작 →</button>
+    </div>
+    <div class="feature">
+      <div class="icotile v2" data-ic="file"></div>
+      <h3>사내 문서 지식 Q&A 봇</h3>
+      <p><b>이런 데이터가 있다면</b> — 사내 매뉴얼, 규정집, 위키, 업무 문서 (PDF는 텍스트로 변환해서)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — 문서를 "질문 → 문서 기반 답변" 형태로 가공해 <b>LoRA 파인튜닝</b>. 문서 원문은 사전학습식으로 추가 학습할 수도 있습니다.</p>
+      <p class="gmeta">추천: Qwen2.5 7B · LoRA · 예시 1GB → 십만 원대</p>
+      <button class="btn sm" onclick="startCase('docs')">이 예시로 시작 →</button>
+    </div>
+    <div class="feature">
+      <div class="icotile v3" data-ic="activity"></div>
+      <h3>내 문체로 글 쓰는 어시스턴트</h3>
+      <p><b>이런 데이터가 있다면</b> — 내가 쓴 블로그·기사·소설·보고서 모음 (.txt, .md)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — 원문 텍스트를 그대로 <b>LoRA 학습</b>하면 문체·어휘를 흡수합니다. 수 MB(책 몇 권 분량)로도 효과가 있습니다.</p>
+      <p class="gmeta">추천: Llama 3.1 8B · LoRA · 예시 50MB → 만 원 이하</p>
+      <button class="btn sm" onclick="startCase('style')">이 예시로 시작 →</button>
+    </div>
+    <div class="feature">
+      <div class="icotile" data-ic="image"></div>
+      <h3>상품 사진 자동 분류기</h3>
+      <p><b>이런 데이터가 있다면</b> — 카테고리별로 정리된 상품·불량품·현장 사진 (폴더별 분류면 최적)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — 클래스별 폴더에 담아 ZIP으로 올리고 <b>이미지 분류(ViT)</b> 학습. 클래스당 수백 장이면 시작할 수 있습니다.</p>
+      <p class="gmeta">추천: ViT-B/16 · 이미지 분류 · 예시 5,000장 → 만 원대</p>
+      <button class="btn sm" onclick="startCase('cls')">이 예시로 시작 →</button>
+    </div>
+    <div class="feature">
+      <div class="icotile v2" data-ic="box"></div>
+      <h3>브랜드 스타일 이미지 생성</h3>
+      <p><b>이런 데이터가 있다면</b> — 제품·브랜드·작품 사진 수십~수백 장 (각 이미지에 짧은 설명 텍스트가 있으면 더 좋음)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — <b>확산 모델(SDXL 계열) 학습</b>으로 우리 브랜드 느낌의 이미지를 생성하는 모델을 만듭니다.</p>
+      <p class="gmeta">추천: SDXL · 확산 모델 · 예시 300장 → 만 원대</p>
+      <button class="btn sm" onclick="startCase('brand')">이 예시로 시작 →</button>
+    </div>
+    <div class="feature">
+      <div class="icotile v3" data-ic="chip"></div>
+      <h3>전문 분야 특화 LLM</h3>
+      <p><b>이런 데이터가 있다면</b> — 법률·의료·금융 등 전문 문서 수 GB~수십 GB (판례, 논문, 보고서)</p>
+      <p style="margin-top:8px"><b>만드는 방법</b> — 원문으로 <b>전체 파인튜닝(계속 사전학습)</b> 후, Q&A 데이터로 LoRA를 한 번 더 얹으면 전문가형 모델이 됩니다.</p>
+      <p class="gmeta">추천: Qwen2.5 72B · 전체 FT · 예시 20GB → 수백만 원대</p>
+      <button class="btn sm" onclick="startCase('domain')">이 예시로 시작 →</button>
+    </div>
+  </div>
+
+  <!-- 학습 유형 설명 -->
+  <div class="card" style="margin-top:26px">
+    <h2>학습 유형, 뭐가 다른가요?</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>유형</th><th>비유</th><th>언제 쓰나</th><th>필요 데이터</th><th>비용 감각</th></tr></thead>
+      <tbody>
+        <tr><td class="gname">LoRA / QLoRA 파인튜닝<small>가장 인기 · 입문 추천</small></td>
+          <td style="text-align:left">기존 모델에 <b>얇은 전문 지식 레이어</b>를 덧입히기</td>
+          <td style="text-align:left">말투·형식·업무 지식 등 특정 능력만 추가</td><td>수백 건 ~ 수만 건</td><td>수천 원 ~ 수십만 원</td></tr>
+        <tr><td class="gname">전체 파인튜닝 (Full FT)</td>
+          <td style="text-align:left">모델 전체를 우리 데이터로 <b>다시 다듬기</b></td>
+          <td style="text-align:left">도메인 문서가 많고(수 GB↑) 깊은 특화가 필요할 때</td><td>수 GB ~ 수십 GB</td><td>수십만 ~ 수백만 원</td></tr>
+        <tr><td class="gname">사전학습 (Pre-training)</td>
+          <td style="text-align:left">백지에서 <b>모델을 새로 만들기</b></td>
+          <td style="text-align:left">자체 언어모델이 필요한 기업·연구기관</td><td>수백 GB ~ 수십 TB</td><td>수천만 원 이상</td></tr>
+        <tr><td class="gname">이미지 분류 (ViT/CNN)</td>
+          <td style="text-align:left">사진을 보고 <b>종류를 맞히는 눈</b> 만들기</td>
+          <td style="text-align:left">상품 분류, 불량 검출, 문서 분류</td><td>클래스당 수백 장~</td><td>수천 원 ~ 수만 원</td></tr>
+        <tr><td class="gname">확산 모델 (SD 계열)</td>
+          <td style="text-align:left">우리 스타일로 <b>그림 그리는 손</b> 만들기</td>
+          <td style="text-align:left">브랜드 이미지 생성, 캐릭터·제품 렌더링</td><td>수십 ~ 수천 장</td><td>수천 원 ~ 수십만 원</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- 데이터 형식 가이드 -->
+  <div class="admin-2col" style="margin-top:20px">
+    <div class="card">
+      <h2>텍스트 데이터는 이렇게 준비하세요</h2>
+      <p class="gdesc">챗봇·Q&A용은 <b>JSONL</b>(한 줄에 예시 하나)이 표준입니다. 엑셀의 질문/답변 두 열을 그대로 옮긴 것과 같습니다.</p>
+      <div class="codebox"><b>instruction 형식 — 질문·답변 쌍 (추천)</b><pre>{"instruction": "배송 조회는 어떻게 하나요?", "output": "주문내역 > 배송조회 메뉴에서 확인하실 수 있어요."}
+{"instruction": "환불 규정 알려줘", "input": "결제 후 3일 지남", "output": "결제일로부터 7일 이내에는 전액 환불이 가능합니다."}</pre></div>
+      <div class="codebox"><b>messages 형식 — 여러 턴 대화</b><pre>{"messages": [
+  {"role": "user", "content": "재고 문의드려요"},
+  {"role": "assistant", "content": "어떤 상품인지 알려주시면 바로 확인해 드릴게요."},
+  {"role": "user", "content": "A-100 모델이요"},
+  {"role": "assistant", "content": "A-100은 현재 12개 재고가 있습니다."}
+]}</pre></div>
+      <div class="codebox"><b>일반 텍스트(.txt) — 문체 학습·사전학습용</b><pre>그날 밤 서버실의 불빛은 유난히 푸르게 빛났다.
+GPU 팬 소리는 마치 파도 소리 같았다. ...</pre></div>
+      <p class="gdesc" style="margin-top:10px">💡 <b>CSV/엑셀만 있어도 됩니다</b> — 질문, 답변 두 열로 정리해 CSV로 저장하면 업로드 시 자동 인식됩니다.</p>
+    </div>
+    <div class="card">
+      <h2>이미지 데이터는 이렇게 준비하세요</h2>
+      <p class="gdesc"><b>분류 학습</b>은 클래스(종류)별 폴더에 나눠 담는 것이 전부입니다. 폴더나 ZIP 그대로 올리면 자동 분류됩니다.</p>
+      <div class="codebox"><b>이미지 분류 — 폴더 구조</b><pre>dataset/
+├── 정상제품/   ← 폴더명이 곧 정답(라벨)
+│   ├── img001.jpg
+│   └── img002.jpg
+├── 스크래치불량/
+│   └── img101.jpg
+└── 도색불량/
+    └── img201.jpg</pre></div>
+      <div class="codebox"><b>이미지 생성(확산) — 이미지 + 캡션 쌍</b><pre>dataset/
+├── product01.jpg
+├── product01.txt  ← "미니멀한 흰색 무선 이어버드, 스튜디오 조명"
+├── product02.jpg
+└── product02.txt</pre></div>
+      <h2 style="margin-top:22px">품질 체크리스트</h2>
+      <div class="gdesc">
+        ✅ <b>양보다 질</b> — 오타·중복·잘못된 답변을 지우는 것이 데이터를 늘리는 것보다 효과적입니다<br>
+        ✅ <b>개인정보 제거</b> — 이름·전화번호·계좌는 학습 전에 마스킹하세요 (예: 홍길동 → [이름])<br>
+        ✅ <b>일관된 형식</b> — 모든 예시가 같은 필드 구조를 갖도록<br>
+        ✅ <b>실제 사용 상황과 비슷하게</b> — 서비스에서 받을 질문과 닮은 데이터일수록 좋습니다<br>
+        ✅ <b>최소 수량 감각</b> — LoRA 챗봇 1천 건~, 문체 수 MB~, 이미지 분류 클래스당 300장~, 확산 스타일 30장~
+      </div>
+    </div>
+  </div>
+
+  <!-- 규모 가이드 -->
+  <div class="card" style="margin-top:20px">
+    <h2>데이터 양에 따라 무엇이 달라지나요?</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>보유 데이터</th><th>만들 수 있는 것</th><th>추천 구성</th><th>대략 비용</th></tr></thead>
+      <tbody>
+        <tr><td>수 MB (문서 몇십 개)</td><td style="text-align:left">말투·형식 흉내, 간단한 응답 스타일</td><td>8B LoRA · GPU 1~4개</td><td>수천 원</td></tr>
+        <tr><td>수백 MB (상담 수만 건)</td><td style="text-align:left">실무 투입 가능한 업무 특화 챗봇</td><td>8B LoRA · GPU 8개</td><td>수만 원</td></tr>
+        <tr><td>수 GB (사내 문서 전체)</td><td style="text-align:left">도메인 지식이 몸에 밴 사내 전용 모델</td><td>7~70B 전체 FT · GPU 8~32개</td><td>수십만~수백만 원</td></tr>
+        <tr><td>수십 GB ~ TB급</td><td style="text-align:left">전문 분야 특화 LLM, 자체 파운데이션 모델</td><td>70B+ · GPU 64개↑ · <a class="tlink" onclick="openFtp()">FTP 전송</a></td><td>수백만 원 이상</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note">정확한 금액은 <a class="tlink" onclick="showView('calc')">비용 계산기</a>에서 데이터 양과 모델을 넣어 바로 확인할 수 있습니다.</div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="card" style="margin-top:20px">
+    <h2>자주 묻는 질문</h2>
+    <div class="gdesc">
+      <b>Q. 코딩을 전혀 모르는데 가능한가요?</b><br>
+      네. 엑셀로 질문/답변을 정리해 CSV로 저장할 수 있다면 충분합니다. 업로드하면 형식·언어·레코드 수를 자동 분석해 드립니다.<br><br>
+      <b>Q. 데이터가 너무 적어요 (수십 건).</b><br>
+      수십 건으로는 학습보다 프롬프트(지시문)에 예시를 넣는 편이 낫습니다. 300건 이상 모이면 LoRA 효과가 나기 시작합니다.<br><br>
+      <b>Q. 개인정보가 섞여 있어요.</b><br>
+      학습 전 반드시 마스킹하세요. 모델은 학습 데이터를 기억할 수 있어, 개인정보가 응답에 노출될 위험이 있습니다.<br><br>
+      <b>Q. PDF·한글(HWP) 문서는요?</b><br>
+      텍스트(.txt/.md)로 변환 후 올려주세요. 표가 많은 문서는 CSV로 정리하는 것이 좋습니다.<br><br>
+      <b>Q. 데이터가 수십 GB가 넘어요.</b><br>
+      <a class="tlink" onclick="openFtp()">별도 문의를 통한 FTP/SFTP 전송</a>으로 처리해 드립니다.
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:30px">
+    <button class="btn" data-view="new">준비됐어요 — 학습 시작하기 →</button>
   </div>
 </section>
 

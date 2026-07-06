@@ -643,6 +643,28 @@ function renderFileList() {
 window.clearFiles = function() { order.files = []; order.zipFailed = null; analyzeFiles(); };
 window.setModality = function(m) { order.dataType = m; syncStep1(); renderAnalysis(); };
 
+// ---------- 가이드 케이스 → 위저드 프리셋 적용 ----------
+const GUIDE_CASES = {
+  csbot:  { type: "text",  amount: 0.2, task: "lora",     modelId: "llama8" },
+  docs:   { type: "text",  amount: 1,   task: "lora",     modelId: "qwen7" },
+  style:  { type: "text",  amount: 0.05,task: "lora",     modelId: "llama8" },
+  cls:    { type: "image", amount: 5000, task: "vision" },
+  brand:  { type: "image", amount: 300,  task: "diffusion" },
+  domain: { type: "text",  amount: 20,  task: "finetune", modelId: "qwen72" },
+};
+window.startCase = function(id) {
+  const c = GUIDE_CASES[id];
+  if (!c) return;
+  showView("new");
+  goStep(1);
+  $("manualType").value = c.type;
+  $("manualAmount").value = c.amount;
+  order.task = c.task;
+  if (c.modelId) order.modelId = c.modelId;
+  syncStep1();
+  renderAnalysis();
+};
+
 $("manualType").addEventListener("change", syncStep1);
 $("manualAmount").addEventListener("input", syncStep1);
 
@@ -1677,10 +1699,11 @@ initIcons();
 renderAuthBox();
 goStep(1);
 syncStep1();
+const VIEWS = ["home","new","guide","dashboard","calc","admin"];
 const initial = (location.hash || "#home").slice(1);
-showView(["home","new","dashboard","calc","admin"].includes(initial) ? initial : "home");
+showView(VIEWS.includes(initial) ? initial : "home");
 // 주소창에서 #admin 등으로 직접 이동하는 경우 처리
 window.addEventListener("hashchange", () => {
   const v = location.hash.slice(1);
-  if (["home","new","dashboard","calc","admin"].includes(v) && !document.querySelector("#view-" + v + ".active")) showView(v);
+  if (VIEWS.includes(v) && !document.querySelector("#view-" + v + ".active")) showView(v);
 });

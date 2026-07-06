@@ -115,10 +115,16 @@
       <h2>학습 데이터 업로드</h2>
       <div class="dropzone" id="dropzone">
         <div class="big" data-ic="upload" data-ic-cls="xl"></div>
-        <p><b>파일을 끌어다 놓거나 클릭해서 선택</b><br>
-        텍스트: .txt .jsonl .json .csv .md &nbsp;|&nbsp; 이미지: .jpg .png .webp 등<br>
+        <p><b>파일 · 폴더 · ZIP 압축파일을 끌어다 놓거나 클릭해서 선택</b><br>
+        텍스트(.txt .jsonl .json .csv .md)와 이미지(.jpg .png .webp) 혼합 업로드 가능<br>
+        폴더는 하위까지 자동 탐색, <b>ZIP은 브라우저에서 자동 해제·분류</b>됩니다<br>
         <small>데모 모드에서는 파일이 서버로 전송되지 않고 브라우저에서만 분석됩니다.</small></p>
+        <div style="position:relative;display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="btn ghost sm" id="pickFiles">파일 선택</button>
+          <button class="btn ghost sm" id="pickFolder">폴더 선택</button>
+        </div>
         <input type="file" id="fileInput" multiple style="display:none">
+        <input type="file" id="folderInput" webkitdirectory multiple style="display:none">
       </div>
       <div class="filelist" id="fileList"></div>
       <div class="datasum" id="dataSum" style="display:none">

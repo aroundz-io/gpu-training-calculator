@@ -342,6 +342,24 @@ $("storageMonths").addEventListener("change", syncStorageUI);
 
 window.openTerms = function() { $("termsModal").classList.add("show"); };
 window.closeTerms = function() { $("termsModal").classList.remove("show"); };
+window.openFtp = function() { $("ftpModal").classList.add("show"); };
+window.closeFtp = function() { $("ftpModal").classList.remove("show"); };
+
+// 대용량 업로드 감지 → FTP 전송 안내
+const WEB_UPLOAD_LIMIT = 5e9;   // 웹 업로드 권장 한도 5GB
+function syncFtpWarn() {
+  const total = order.textBytes + order.imgBytes + (order.otherBytes || 0);
+  const el = $("ftpWarn");
+  if (total > WEB_UPLOAD_LIMIT) {
+    el.style.display = "block";
+    el.innerHTML = `<div class="retention temp" style="margin-top:10px">${icon("database","sm")}<span>
+      업로드 데이터가 <b>${fmtBytes(total)}</b>로 웹 업로드 권장 한도(5GB)를 초과했습니다.
+      대용량 데이터는 <b>별도 문의를 통한 FTP/SFTP 전송</b>을 권장합니다 — 전송 후 자동 분류·검증되어 동일하게 학습에 연결됩니다.
+      <a class="tlink" onclick="openFtp()">FTP 전송 절차 안내 →</a></span></div>`;
+  } else {
+    el.style.display = "none";
+  }
+}
 
 const TEXT_EXT = ["txt","json","jsonl","csv","tsv","md","xml","html","parquet"];
 const IMG_EXT  = ["jpg","jpeg","png","webp","gif","bmp","tif","tiff"];
@@ -453,7 +471,8 @@ async function addFiles(list) {
         }));
         continue;
       }
-      // ZIP 파싱 실패 시 일반 파일(기타)로 취급
+      // ZIP 파싱 실패(ZIP64 대형 압축 등) → 기타로 분류하고 FTP 안내
+      order.zipFailed = name;
     }
     order.files.push({ name, size: f.size, file: isFile ? f : null });
   }
@@ -596,6 +615,7 @@ function renderAnalysis() {
   } else if (order.otherBytes > 0) {
     rows.push(["미지원 형식", fmtBytes(order.otherBytes) + " — 학습 대상에서 제외됨"]);
   }
+  if (order.zipFailed) rows.push(["압축 해제 실패", order.zipFailed + " — ZIP64 대형 압축은 FTP 전송 문의를 이용하세요"]);
   if (a && Object.keys(a).length) {
     if (a.records) rows.push(["레코드 수 (추정)", "약 " + fmtNum(a.records, 0) + "개"]);
     if (a.avgRecBytes) rows.push(["평균 레코드 크기", fmtBytes(a.avgRecBytes)]);
@@ -620,7 +640,7 @@ function renderFileList() {
   const clear = order.files.length ? `<div style="text-align:right;margin-top:6px"><button class="btn ghost sm" onclick="clearFiles()">전체 삭제</button></div>` : "";
   $("fileList").innerHTML = rows + more + clear;
 }
-window.clearFiles = function() { order.files = []; analyzeFiles(); };
+window.clearFiles = function() { order.files = []; order.zipFailed = null; analyzeFiles(); };
 window.setModality = function(m) { order.dataType = m; syncStep1(); renderAnalysis(); };
 
 $("manualType").addEventListener("change", syncStep1);
@@ -638,6 +658,7 @@ function syncStep1() {
   const has = order.dataType && ((order.dataType === "text" && order.tokens > 0) || (order.dataType === "image" && order.samples > 0));
   $("dataSum").style.display = has ? "grid" : "none";
   syncStorageUI();
+  syncFtpWarn();
   if (has) {
     const isText = order.dataType === "text";
     const mixed = !manual && order.textBytes > 0 && order.imgCount > 0;
@@ -876,7 +897,7 @@ function goStep(n) {
 document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => goStep(parseInt(b.dataset.goto))));
 function resetWizard() {
   order.files = []; order.tokens = 0; order.samples = 0; order.dataType = null;
-  order.textBytes = 0; order.imgBytes = 0; order.imgCount = 0;
+  order.textBytes = 0; order.imgBytes = 0; order.imgCount = 0; order.otherBytes = 0; order.zipFailed = null;
   $("manualType").value = ""; $("fileInput").value = ""; $("jobName").value = "";
   $("storageOpt").value = "none"; order.storageUse = false;
   $("payCard").value = ""; $("payExp").value = ""; $("payCvc").value = ""; $("payAgree").checked = false;

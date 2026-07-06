@@ -92,6 +92,34 @@ const TASK_LABELS = {
 
 const $ = id => document.getElementById(id);
 
+// ==================== SVG 심볼 아이콘 ====================
+const ICONS = {
+  upload:     '<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/>',
+  chip:       '<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9.5 3.5v3.5M14.5 3.5v3.5M9.5 17v3.5M14.5 17v3.5M3.5 9.5H7M3.5 14.5H7M17 9.5h3.5M17 14.5h3.5"/>',
+  zap:        '<path d="M13 2.5 4.5 13.5H11L10 21.5l8.5-11H12l1-8z"/>',
+  creditcard: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/>',
+  calculator: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/>',
+  activity:   '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  shield:     '<path d="M12 3l7.5 3v5.5c0 4.5-3.2 7.8-7.5 9.5-4.3-1.7-7.5-5-7.5-9.5V6L12 3z"/><path d="M9 11.5l2.2 2.2L15.5 9.5"/>',
+  lock:       '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/><path d="M12 14.5v2"/>',
+  trash:      '<path d="M4.5 6.5h15M9.5 6.5V4.8a1.3 1.3 0 0 1 1.3-1.3h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7M6.5 6.5l.8 12.2a1.6 1.6 0 0 0 1.6 1.5h6.2a1.6 1.6 0 0 0 1.6-1.5l.8-12.2"/><path d="M10 10.5v6M14 10.5v6"/>',
+  box:        '<path d="M12 2.8l8 4.4v9.6l-8 4.4-8-4.4V7.2l8-4.4z"/><path d="M4.3 7.4 12 11.7l7.7-4.3M12 11.7V21"/>',
+  checkcircle:'<circle cx="12" cy="12" r="9"/><path d="M8.5 12.3l2.4 2.4 4.8-5"/>',
+  file:       '<path d="M13.5 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V8L13.5 3z"/><path d="M13.5 3v5h5"/>',
+  image:      '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-9 8.5"/>',
+  folder:     '<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.5l2 2.5H19A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5V7z"/>',
+  coin:       '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.3 9.8c.5-.9 1.5-1.4 2.7-1.4 1.7 0 3 .9 3 2.1 0 2.7-5.8 1.3-5.8 4 0 1.2 1.3 2.1 3 2.1 1.2 0 2.2-.5 2.7-1.4"/>',
+  database:   '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13"/><path d="M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+};
+function icon(name, cls = "") {
+  return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+}
+function initIcons() {
+  document.querySelectorAll("[data-ic]").forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, el.dataset.icCls || "");
+  });
+}
+
 // ==================== 포맷 유틸 ====================
 function fmtNum(x, d=1) { return x.toLocaleString("ko-KR", { maximumFractionDigits:d }); }
 function fmtFlops(f) {
@@ -275,7 +303,7 @@ function analyzeFiles() {
 function renderFileList() {
   const max = 8;
   const rows = order.files.slice(0, max).map(f =>
-    `<div class="frow"><span class="fn">📄 ${f.name}</span><small>${fmtBytes(f.size)}</small></div>`).join("");
+    `<div class="frow"><span class="fn">${icon("file","sm")} ${f.name}</span><small>${fmtBytes(f.size)}</small></div>`).join("");
   const more = order.files.length > max ? `<div class="frow"><span class="fn">… 외 ${order.files.length - max}개</span><small></small></div>` : "";
   const clear = order.files.length ? `<div style="text-align:right;margin-top:6px"><button class="btn ghost sm" onclick="clearFiles()">전체 삭제</button></div>` : "";
   $("fileList").innerHTML = rows + more + clear;
@@ -299,7 +327,9 @@ function syncStep1() {
   syncStorageUI();
   if (has) {
     const isText = order.dataType === "text";
-    $("dsType").textContent = isText ? "📝 텍스트" : "🖼️ 이미지";
+    $("dsType").innerHTML = isText
+      ? icon("file","sm") + " 텍스트"
+      : icon("image","sm") + " 이미지";
     $("dsTypeSub").textContent = manual ? "직접 입력 기준" : "업로드 파일 자동 판별";
     $("dsBytes").textContent = fmtBytes(isText ? order.textBytes : order.imgBytes);
     $("dsFiles").textContent = order.files.length ? order.files.length + "개 파일" : "";
@@ -400,8 +430,8 @@ function buildStep3() {
   let html = "", lastCat = null;
   runs.forEach(({g, r}) => {
     if (g.cat !== lastCat) { html += `<div class="gpu-cat">${g.cat}</div>`; lastCat = g.cat; }
-    const badge = g.id === cheapest ? '<span class="badge">💰 최저 비용</span>'
-                : g.id === fastest  ? '<span class="badge b2">⚡ 최단 시간</span>' : "";
+    const badge = g.id === cheapest ? `<span class="badge">${icon("coin","xs")} 최저 비용</span>`
+                : g.id === fastest  ? `<span class="badge b2">${icon("zap","xs")} 최단 시간</span>` : "";
     html += `<div class="gpu-item ${g.id === order.gpuId ? "on" : ""}" data-wgpu="${g.id}">${badge}
       <div class="nm">${g.name}</div>
       <div class="sp">${g.mem}GB · $${g.price}/시간<br>${fmtHours(r.hours)} · ${fmtUsd(r.cost)}</div>
@@ -426,7 +456,7 @@ function quoteRows() {
   const vat = Math.round((krw + storage) * 0.1);
   const storageRow = order.storageUse
     ? `<div class="qrow"><small>스토리지 보관료</small><span>${fmtBytes(orderDataBytes())} × ${order.storageMonths}개월 = ${fmtNum(storage,0)}원</span></div>
-       <div class="qrow"><small>데이터 보관</small><span style="color:var(--accent)">🔒 이용 기간(${order.storageMonths}개월) 동안 안전 보관</span></div>`
+       <div class="qrow"><small>데이터 보관</small><span style="color:var(--accent)">${icon("lock","xs")} 이용 기간(${order.storageMonths}개월) 동안 안전 보관</span></div>`
     : `<div class="qrow"><small>데이터 보관</small><span style="color:var(--warn)">임시 보관 — 학습 완료 ${RETENTION_DAYS}일 후 영구 삭제</span></div>`;
   return { g, r, html: `
     <div class="qrow"><small>데이터</small><span>${isText ? fmtTokens(order.tokens) + " (" + fmtBytes(order.textBytes) + ")" : fmtNum(order.samples,0) + "장 (" + fmtBytes(order.imgBytes) + ")"}</span></div>
@@ -597,16 +627,36 @@ function lossChartSvg(job, p) {
   for (let i = 0; i < shown; i++) {
     const x = i / N;
     const y = lossAt(x, rnd);
-    pts.push([10 + x * 285, 108 - (y / 3.2) * 96]);
+    pts.push([12 + x * 280, 106 - (y / 3.2) * 92]);
   }
   const poly = pts.map(p2 => p2[0].toFixed(1) + "," + p2[1].toFixed(1)).join(" ");
   const last = pts[pts.length - 1];
-  return `<svg viewBox="0 0 300 120" style="width:100%;height:150px">
-    <line x1="10" y1="108" x2="295" y2="108" stroke="var(--border)" stroke-width="1"/>
-    <line x1="10" y1="12" x2="10" y2="108" stroke="var(--border)" stroke-width="1"/>
-    <polyline points="${poly}" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
-    <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="var(--accent)"/>
-    <text x="292" y="${Math.max(14, last[1] - 6)}" fill="var(--accent)" font-size="9" text-anchor="end">loss ${(108 - last[1]) ? ((108 - last[1]) / 96 * 3.2).toFixed(3) : ""}</text>
+  const area = `M${pts[0][0].toFixed(1)},106 L` + poly.replace(/ /g, " L") + ` L${last[0].toFixed(1)},106 Z`;
+  const uid = job.id.replace(/[^a-z0-9]/gi, "");
+  const lossVal = ((106 - last[1]) / 92 * 3.2).toFixed(3);
+  const gridY = [30, 55, 80];
+  return `<svg viewBox="0 0 300 122" style="width:100%;height:152px">
+    <defs>
+      <linearGradient id="lg${uid}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#86e01e"/>
+      </linearGradient>
+      <linearGradient id="la${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(139,92,246,.30)"/><stop offset="1" stop-color="rgba(139,92,246,0)"/>
+      </linearGradient>
+      <filter id="gl${uid}" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="2.4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    ${gridY.map(y => `<line x1="12" y1="${y}" x2="292" y2="${y}" stroke="rgba(126,145,255,.10)" stroke-width="1" stroke-dasharray="3 5"/>`).join("")}
+    <line x1="12" y1="106" x2="292" y2="106" stroke="rgba(126,145,255,.22)" stroke-width="1"/>
+    <path d="${area}" fill="url(#la${uid})"/>
+    <polyline points="${poly}" fill="none" stroke="url(#lg${uid})" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#gl${uid})"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="6" fill="rgba(134,224,30,.18)">
+      <animate attributeName="r" values="4;8;4" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="#86e01e" filter="url(#gl${uid})"/>
+    <text x="290" y="${Math.max(16, last[1] - 10)}" fill="#86e01e" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="end">loss ${lossVal}</text>
   </svg>`;
 }
 function logLines(job, p) {
@@ -631,21 +681,21 @@ function retentionNotice(j) {
   const size = j.dataBytes ? fmtBytes(j.dataBytes) : "";
   if (j.storage) {
     if (j.status !== "completed")
-      return `<div class="retention stored">🔒 학습 데이터(${size}) 임시 보관 중 — 학습 완료 후 스토리지 서비스로 ${j.storage.months}개월간 안전하게 보관됩니다.</div>`;
+      return `<div class="retention stored">${icon("lock","sm")}<span>학습 데이터(${size}) 임시 보관 중 — 학습 완료 후 스토리지 서비스로 ${j.storage.months}개월간 안전하게 보관됩니다.</span></div>`;
     const expireAt = j.completedAt + j.storage.months * 30 * 86400e3;
-    return `<div class="retention stored">🔒 스토리지 서비스 보관 중 — ${size}, ${j.storage.months}개월 (보관 만료: ${fmtDate(expireAt)}) · 이용 기간 동안 안전하게 보관되며, 만료 후 15일 유예를 거쳐 영구 삭제됩니다.</div>`;
+    return `<div class="retention stored">${icon("lock","sm")}<span>스토리지 서비스 보관 중 — ${size}, ${j.storage.months}개월 (보관 만료: ${fmtDate(expireAt)}) · 이용 기간 동안 안전하게 보관되며, 만료 후 15일 유예를 거쳐 영구 삭제됩니다.</span></div>`;
   }
   if (j.status !== "completed")
-    return `<div class="retention temp">🗑️ 학습 데이터(${size})는 임시 보관 중이며, 학습이 끝난 후 삭제 조치됩니다 — 완료 15일 후 영구 삭제. 계속 보관하려면 스토리지 서비스가 필요합니다.</div>`;
+    return `<div class="retention temp">${icon("trash","sm")}<span>학습 데이터(${size})는 임시 보관 중이며, 학습이 끝난 후 삭제 조치됩니다 — 완료 15일 후 영구 삭제. 계속 보관하려면 스토리지 서비스가 필요합니다.</span></div>`;
   const deleteAt = j.completedAt + RETENTION_DAYS * 86400e3;
   const dLeft = Math.max(0, Math.ceil((deleteAt - Date.now()) / 86400e3));
-  return `<div class="retention temp">🗑️ 원본 학습 데이터(${size})는 <b>${fmtDate(deleteAt)}</b>에 영구 삭제됩니다 (D-${dLeft}). 삭제된 데이터는 복구할 수 없으며, 계속 보관하려면 스토리지 서비스를 이용하세요.</div>`;
+  return `<div class="retention temp">${icon("trash","sm")}<span>원본 학습 데이터(${size})는 <b>${fmtDate(deleteAt)}</b>에 영구 삭제됩니다 (D-${dLeft}). 삭제된 데이터는 복구할 수 없으며, 계속 보관하려면 스토리지 서비스를 이용하세요.</span></div>`;
 }
 
 function renderJobs() {
   const jobs = loadJobs();
   if (!jobs.length) {
-    $("jobList").innerHTML = `<div class="empty"><div class="big">🗂️</div>
+    $("jobList").innerHTML = `<div class="empty"><div class="big">${icon("folder","xl")}</div>
       아직 학습 작업이 없습니다.<br><br>
       <button class="btn" data-view="new" onclick="showView('new')">첫 학습 시작하기 →</button></div>`;
     return;
@@ -661,7 +711,7 @@ function renderJobs() {
           <h3>${j.name}</h3>
           <small>${j.taskLabel} · ${j.modelLabel} · ${j.dataLabel} · ${j.gpuName} × ${j.gpuCount}</small>
         </div>
-        <span class="jstatus ${j.status}">${running ? "● 학습 중" : "✓ 완료"}</span>
+        <span class="jstatus ${j.status}">${running ? '<span class="pulse"></span>학습 중' : icon("checkcircle","xs") + " 완료"}</span>
       </div>
       <div class="prog">
         <div class="bar-track"><div class="bar-fill" style="width:${(p*100).toFixed(1)}%"></div></div>
@@ -682,7 +732,7 @@ function renderJobs() {
       </div>
       ${retentionNotice(j)}
       <div style="margin-top:14px;display:flex;gap:8px">
-        ${j.status === "completed" ? `<button class="btn sm" onclick="downloadModel('${j.id}')">📦 모델 다운로드</button>` : ""}
+        ${j.status === "completed" ? `<button class="btn sm" onclick="downloadModel('${j.id}')">${icon("box","xs")} 모델 다운로드</button>` : ""}
         <button class="btn ghost sm" onclick="deleteJob('${j.id}')">삭제</button>
       </div>
     </div>`;
@@ -1000,6 +1050,7 @@ $("mfu").addEventListener("input", () => { $("mfuLabel").textContent = $("mfu").
 render();
 
 // ==================== 시작 뷰 ====================
+initIcons();
 goStep(1);
 syncStep1();
 const initial = (location.hash || "#home").slice(1);

@@ -83,7 +83,7 @@ const LLM_PRESETS = [
 
 const BYTES_PER_TOKEN = 4;      // 평문 텍스트 기준 1토큰 ≈ 4바이트
 const BYTES_PER_IMAGE = 5e5;    // 이미지 1장 ≈ 500KB (JPEG 기준)
-const FX = 1380;                // 서비스 뷰 기본 환율 (계산기 뷰는 별도 입력)
+const FX = 1540;                // 서비스 뷰 기본 환율 (계산기 뷰는 별도 입력)
 
 const TASK_LABELS = {
   pretrain:"LLM 사전학습", finetune:"LLM 전체 파인튜닝", lora:"LLM LoRA/QLoRA 파인튜닝",
@@ -205,10 +205,71 @@ function showView(v) {
   });
   location.hash = v;
   if (v === "dashboard") { renderJobs(); startTick(); } else { stopTick(); }
+  if (v === "admin") renderAdmin();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("[data-view]").forEach(el => {
   el.addEventListener("click", () => showView(el.dataset.view));
+});
+
+/* ==========================================================================
+   회원 인증 (데모: localStorage — 실서비스에서는 서버 인증으로 교체)
+   ========================================================================== */
+const USERS_KEY = "trainlab_users", SESSION_KEY = "trainlab_session";
+function loadUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; } }
+function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
+function currentUser() {
+  const e = localStorage.getItem(SESSION_KEY);
+  return e ? loadUsers().find(u => u.email === e) || null : null;
+}
+function renderAuthBox() {
+  const u = currentUser();
+  $("authBox").innerHTML = u
+    ? `<span class="uname"><em>${u.name}</em>님</span><button class="btn ghost sm" onclick="logout()">로그아웃</button>`
+    : `<button class="btn ghost sm" onclick="openAuth('login')">로그인</button><button class="btn sm" onclick="openAuth('signup')">회원가입</button>`;
+}
+let authTab = "login";
+function pwHash(pw) { return btoa(unescape(encodeURIComponent(pw))); }
+window.openAuth = function(tab) { setAuthTab(tab || "login"); $("authModal").classList.add("show"); };
+window.closeAuth = function() { $("authModal").classList.remove("show"); };
+window.setAuthTab = function(tab) {
+  authTab = tab;
+  $("authTabLogin").classList.toggle("on", tab === "login");
+  $("authTabSignup").classList.toggle("on", tab === "signup");
+  $("authLoginForm").style.display = tab === "login" ? "block" : "none";
+  $("authSignupForm").style.display = tab === "signup" ? "block" : "none";
+  $("authSubmit").textContent = tab === "login" ? "로그인" : "가입하고 시작하기";
+  $("authErr").style.display = "none";
+};
+function authError(msg) { const e = $("authErr"); e.textContent = msg; e.style.display = "block"; }
+function afterAuth() {
+  closeAuth(); renderAuthBox();
+  if (order.step === 4 && document.querySelector("#view-new.active")) buildStep4();
+}
+window.logout = function() {
+  localStorage.removeItem(SESSION_KEY);
+  renderAuthBox();
+  if (order.step === 4 && document.querySelector("#view-new.active")) buildStep4();
+};
+$("authSubmit").addEventListener("click", () => {
+  if (authTab === "signup") {
+    const name = $("suName").value.trim(), email = $("suEmail").value.trim().toLowerCase(), pw = $("suPw").value;
+    if (!name) return authError("이름을 입력해 주세요.");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return authError("올바른 이메일 형식이 아닙니다.");
+    if (pw.length < 6) return authError("비밀번호는 6자 이상이어야 합니다.");
+    const users = loadUsers();
+    if (users.some(u => u.email === email)) return authError("이미 가입된 이메일입니다. 로그인해 주세요.");
+    users.push({ name, email, pw: pwHash(pw), created: Date.now() });
+    saveUsers(users);
+    localStorage.setItem(SESSION_KEY, email);
+    afterAuth();
+  } else {
+    const email = $("loginEmail").value.trim().toLowerCase(), pw = $("loginPw").value;
+    const u = loadUsers().find(x => x.email === email);
+    if (!u || u.pw !== pwHash(pw)) return authError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    localStorage.setItem(SESSION_KEY, email);
+    afterAuth();
+  }
 });
 
 // ==================== 홈: 인기 GPU 시세 ====================
@@ -238,6 +299,14 @@ const order = {
   epochs: 1, precision: "bf16",
   gpuId: "h100", gpuCount: 8,
   storageUse: false, storageMonths: 3,
+  priority: "std",
+};
+
+// 처리 우선순위 — 큐 배정 순서에 따른 요금 할증
+const PRIORITIES = {
+  std:    { label: "표준",  mult: 1.0 },
+  high:   { label: "높음",  mult: 1.15 },
+  urgent: { label: "긴급",  mult: 1.3 },
 };
 
 // ---------- 데이터 보관 / 스토리지 서비스 ----------
@@ -444,6 +513,7 @@ function buildStep3() {
   renderQuote();
 }
 $("wGpuCount").addEventListener("change", buildStep3);
+$("wPriority").addEventListener("change", () => { order.priority = $("wPriority").value; renderQuote(); });
 
 function quoteRows() {
   const cfg = wizardCfg();
@@ -451,7 +521,8 @@ function quoteRows() {
   const r = engineRun(g, cfg);
   const [fv, fu] = fmtFlops(r.flops);
   const isText = order.dataType === "text";
-  const krw = Math.round(r.cost * FX);
+  const prio = PRIORITIES[order.priority];
+  const krw = Math.round(r.cost * FX * prio.mult);
   const storage = storageFeeKrw();
   const vat = Math.round((krw + storage) * 0.1);
   const storageRow = order.storageUse
@@ -465,7 +536,8 @@ function quoteRows() {
     <div class="qrow"><small>GPU 구성</small><span>${g.name} × ${order.gpuCount} (${order.precision.toUpperCase()}, MFU ${Math.round(r.mfu*100)}%)</span></div>
     <div class="qrow"><small>예상 학습 시간</small><span><b>${fmtHours(r.hours)}</b></span></div>
     <div class="qrow"><small>시간당 요금</small><span>$${fmtNum(r.price * order.gpuCount, 2)} (${g.name} $${r.price} × ${order.gpuCount})</span></div>
-    <div class="qrow"><small>학습 비용</small><span>${fmtUsd(r.cost)} ≈ ${fmtNum(krw, 0)}원</span></div>
+    <div class="qrow"><small>처리 우선순위</small><span>${prio.label}${prio.mult > 1 ? " (요금 ×" + prio.mult + ")" : ""}</span></div>
+    <div class="qrow"><small>학습 비용</small><span>${fmtUsd(r.cost * prio.mult)} ≈ ${fmtNum(krw, 0)}원</span></div>
     ${storageRow}
     <div class="qrow"><small>부가세 (10%)</small><span>${fmtNum(vat, 0)}원</span></div>
     <div class="qrow total"><span>결제 예정 금액</span><span class="amt">${fmtNum(krw + storage + vat, 0)}원</span></div>`,
@@ -488,9 +560,12 @@ function renderQuote() {
   } else mw.style.display = "none";
 }
 
-// ---------- STEP 4: 결제 ----------
+// ---------- STEP 4: 결제 (회원 전용) ----------
 function buildStep4() {
   $("paySummary").innerHTML = quoteRows().html;
+  const user = currentUser();
+  $("payGate").style.display = user ? "none" : "flex";
+  $("payFormInner").style.display = user ? "block" : "none";
   if (!$("jobName").value) {
     $("jobName").value = order.modelLabel.replace(/[ /()×]+/g, "-").toLowerCase() + "-" +
       (order.task === "lora" ? "lora" : order.task);
@@ -510,7 +585,8 @@ $("payCvc").addEventListener("input", e => { e.target.value = e.target.value.rep
 $("payAgree").addEventListener("change", syncPayBtn);
 $("payAgreeData").addEventListener("change", syncPayBtn);
 function syncPayBtn() {
-  const ok = $("payCard").value.length === 19 && $("payExp").value.length === 5 &&
+  const ok = !!currentUser() &&
+             $("payCard").value.length === 19 && $("payExp").value.length === 5 &&
              $("payCvc").value.length === 3 && $("payAgree").checked && $("payAgreeData").checked;
   $("payBtn").disabled = !ok;
 }
@@ -577,6 +653,8 @@ function createJob(q) {
     gpuName: q.g.name, gpuCount: order.gpuCount,
     precision: order.precision.toUpperCase(), mfu: Math.round(q.r.mfu * 100),
     hours: q.r.hours, costUsd: q.r.cost, krwTotal: q.krwTotal,
+    owner: currentUser()?.email || null, ownerName: currentUser()?.name || "게스트",
+    priority: order.priority,
     dataBytes: orderDataBytes(),
     storage: order.storageUse ? { months: order.storageMonths, feeKrw: q.storageKrw } : null,
     flops: q.r.flops, effPflops: order.gpuCount * q.r.tflops * q.r.mfu / 1000,
@@ -709,9 +787,12 @@ function renderJobs() {
       <div class="jhead">
         <div>
           <h3>${j.name}</h3>
-          <small>${j.taskLabel} · ${j.modelLabel} · ${j.dataLabel} · ${j.gpuName} × ${j.gpuCount}</small>
+          <small>${j.taskLabel} · ${j.modelLabel} · ${j.dataLabel} · ${j.gpuName} × ${j.gpuCount}${j.ownerName ? " · " + j.ownerName : ""}</small>
         </div>
-        <span class="jstatus ${j.status}">${running ? '<span class="pulse"></span>학습 중' : icon("checkcircle","xs") + " 완료"}</span>
+        <span style="display:flex;gap:8px;align-items:center">
+          ${j.priority && j.priority !== "std" ? `<span class="prio ${j.priority}">${PRIORITIES[j.priority].label} 우선순위</span>` : ""}
+          <span class="jstatus ${j.status}">${running ? '<span class="pulse"></span>학습 중' : icon("checkcircle","xs") + " 완료"}</span>
+        </span>
       </div>
       <div class="prog">
         <div class="bar-track"><div class="bar-fill" style="width:${(p*100).toFixed(1)}%"></div></div>
@@ -752,6 +833,276 @@ function startTick() {
   }, 1000);
 }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
+
+/* ==========================================================================
+   관리자 (#admin 주소로만 접근 · ID/PW 로그인)
+   ========================================================================== */
+const ADMIN_CRED = { id: "admin", pw: "trainlab2026" };   // 데모용 관리자 계정
+function isAdmin() { return sessionStorage.getItem("trainlab_admin") === "1"; }
+window.adminLogin = function() {
+  if ($("adminId").value === ADMIN_CRED.id && $("adminPw").value === ADMIN_CRED.pw) {
+    sessionStorage.setItem("trainlab_admin", "1");
+    renderAdmin();
+  } else {
+    $("adminLoginErr").style.display = "block";
+  }
+};
+window.adminLogout = function() { sessionStorage.removeItem("trainlab_admin"); renderAdmin(); };
+
+// ---------- 데모 시드 데이터 (실제 회원/작업 데이터와 합산 표시) ----------
+function seededSeries(seed, n, base, spread, growth = 0.8) {
+  const r = mulberry32(seed);
+  return Array.from({ length: n }, (_, i) => Math.round(base * (1 + (i / n) * growth) + r() * spread));
+}
+const SEED_DAILY_REV = seededSeries(42, 180, 1100000, 2600000);   // 최근 180일 일매출(원), 과거→현재
+const SEED_DAILY_SIGNUP = seededSeries(7, 90, 6, 18);             // 최근 90일 일가입자
+const SEED_USERS_BASE = 1284, SEED_STORAGE_USED = 812e12;         // 기존 회원·스토리지(데모)
+
+const GPU_CLUSTERS = [
+  { name: "GB200 NVL72 Pod",  gpu: "GB200",   count: 72,  util: 94, jobs: 6 },
+  { name: "B200 클러스터 A",   gpu: "B200",    count: 96,  util: 91, jobs: 11 },
+  { name: "H100 클러스터 1-4", gpu: "H100 SXM",count: 512, util: 87, jobs: 23 },
+  { name: "H200 클러스터",     gpu: "H200",    count: 128, util: 81, jobs: 9 },
+  { name: "A100 레거시 풀",    gpu: "A100",    count: 256, util: 64, jobs: 14 },
+  { name: "L40S 추론·경량 풀", gpu: "L40S",    count: 160, util: 58, jobs: 8 },
+  { name: "GeForce 팜 (4090)", gpu: "RTX 4090",count: 320, util: 71, jobs: 26 },
+];
+let ADMIN_NODES = [
+  { name: "nvl72-pod-01",  type: "GB200 NVL72",  temp: 61, util: 94, status: "ok" },
+  { name: "hgx-h100-01",   type: "HGX H100 ×8",  temp: 66, util: 92, status: "ok" },
+  { name: "hgx-h100-02",   type: "HGX H100 ×8",  temp: 71, util: 88, status: "ok" },
+  { name: "hgx-h100-03",   type: "HGX H100 ×8",  temp: 45, util: 0,  status: "maint" },
+  { name: "hgx-h200-01",   type: "HGX H200 ×8",  temp: 63, util: 79, status: "ok" },
+  { name: "storage-ceph-01",type: "스토리지 (Ceph 2PB)", temp: 38, util: 41, status: "ok" },
+  { name: "net-spine-01",  type: "네트워크 스파인 (IB NDR)", temp: 42, util: 55, status: "ok" },
+];
+window.toggleNode = function(i) {
+  ADMIN_NODES[i].status = ADMIN_NODES[i].status === "maint" ? "ok" : "maint";
+  ADMIN_NODES[i].util = ADMIN_NODES[i].status === "maint" ? 0 : 80;
+  renderAdmin();
+};
+
+let adminRevMode = "day";
+window.setRevMode = function(m) { adminRevMode = m; renderAdmin(); };
+window.adminSetPriority = function(id, val) {
+  const jobs = loadJobs();
+  const j = jobs.find(x => x.id === id);
+  if (j) { j.priority = val; saveJobs(jobs); }
+  renderAdmin();
+};
+
+// 실제 결제(작업)를 날짜 버킷에 합산한 일매출 시리즈
+function dailyRevenue() {
+  const arr = SEED_DAILY_REV.slice();
+  loadJobs().forEach(j => {
+    const daysAgo = Math.floor((Date.now() - j.created) / 86400e3);
+    const idx = arr.length - 1 - daysAgo;
+    if (idx >= 0) arr[idx] += j.krwTotal || 0;
+  });
+  return arr;
+}
+function bucketize(arr, size, n) {
+  const out = [];
+  for (let i = arr.length; i > 0 && out.length < n; i -= size)
+    out.unshift(arr.slice(Math.max(0, i - size), i).reduce((a, b) => a + b, 0));
+  return out;
+}
+
+function barChartSvg(values, labels, unit = "원") {
+  const w = 680, h = 170, max = Math.max(...values, 1), n = values.length;
+  const slot = w / n, bw = Math.max(5, slot - 5);
+  return `<svg viewBox="0 0 ${w} ${h + 24}" style="width:100%">
+    <defs><linearGradient id="admbar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/><stop offset=".6" stop-color="#8b5cf6"/><stop offset="1" stop-color="#86e01e"/>
+    </linearGradient></defs>
+    ${[0.25, 0.5, 0.75].map(f => `<line x1="0" y1="${h - h*f}" x2="${w}" y2="${h - h*f}" stroke="rgba(126,145,255,.08)" stroke-dasharray="3 6"/>`).join("")}
+    ${values.map((v, i) => {
+      const bh = Math.max(2, v / max * (h - 8));
+      return `<rect x="${(i * slot + 2).toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="url(#admbar)" opacity="${0.55 + 0.45 * (i / n)}"><title>${labels[i]}: ${fmtNum(v, 0)}${unit}</title></rect>`;
+    }).join("")}
+    ${labels.map((l, i) => (n <= 8 || i % Math.ceil(n / 8) === 0)
+      ? `<text x="${(i * slot + bw / 2).toFixed(1)}" y="${h + 16}" fill="#8f9cc3" font-size="9.5" text-anchor="middle" font-family="Space Grotesk, sans-serif">${l}</text>` : "").join("")}
+  </svg>`;
+}
+
+function renderAdmin() {
+  const root = $("adminRoot");
+  if (!isAdmin()) {
+    root.innerHTML = `
+    <div class="card admin-login">
+      <h2>${icon("lock","sm")} 관리자 로그인</h2>
+      <label class="field"><span class="lbl"><b>관리자 ID</b></span><input type="text" id="adminId" placeholder="admin"></label>
+      <label class="field"><span class="lbl"><b>비밀번호</b></span><input type="password" id="adminPw" placeholder="••••••••"></label>
+      <div id="adminLoginErr" style="display:none;color:var(--danger);font-size:12.5px;margin-bottom:10px">ID 또는 비밀번호가 올바르지 않습니다.</div>
+      <button class="btn" style="width:100%" onclick="adminLogin()">로그인</button>
+      <div class="hint">데모 계정 — ID: admin / PW: trainlab2026</div>
+    </div>`;
+    const pw = $("adminPw");
+    if (pw) pw.addEventListener("keydown", e => { if (e.key === "Enter") adminLogin(); });
+    return;
+  }
+
+  // ---------- 데이터 집계 ----------
+  const users = loadUsers(), jobs = loadJobs();
+  const totalUsers = SEED_USERS_BASE + users.length;
+  const running = jobs.filter(j => j.status === "running").length;
+  const totalFlopsAll = jobs.reduce((a, j) => a + (j.flops || 0), 0) + 2.8e24;   // 시드 누적 포함
+  const totalDataBytes = jobs.reduce((a, j) => a + (j.dataBytes || 0), 0) + 41e12;
+  const daily = dailyRevenue();
+  const totalRev = daily.reduce((a, b) => a + b, 0);
+  const avgUtil = Math.round(GPU_CLUSTERS.reduce((a, c) => a + c.util * c.count, 0) / GPU_CLUSTERS.reduce((a, c) => a + c.count, 0));
+
+  // 매출 차트 데이터 (일/주/월)
+  let revVals, revLabels, revTitle;
+  if (adminRevMode === "day") {
+    revVals = daily.slice(-30);
+    revLabels = revVals.map((_, i) => { const d = new Date(Date.now() - (revVals.length - 1 - i) * 86400e3); return (d.getMonth()+1) + "/" + d.getDate(); });
+    revTitle = "최근 30일";
+  } else if (adminRevMode === "week") {
+    revVals = bucketize(daily, 7, 12);
+    revLabels = revVals.map((_, i) => "W-" + (revVals.length - 1 - i));
+    revTitle = "최근 12주";
+  } else {
+    revVals = bucketize(daily, 30, 6);
+    revLabels = revVals.map((_, i) => { const d = new Date(Date.now() - (revVals.length - 1 - i) * 30 * 86400e3); return (d.getMonth()+1) + "월"; });
+    revTitle = "최근 6개월";
+  }
+  const revSum = revVals.reduce((a, b) => a + b, 0);
+
+  const signupVals = SEED_DAILY_SIGNUP.slice(-14);
+  users.forEach(u => {
+    const daysAgo = Math.floor((Date.now() - u.created) / 86400e3);
+    const idx = signupVals.length - 1 - daysAgo;
+    if (idx >= 0) signupVals[idx]++;
+  });
+  const signupLabels = signupVals.map((_, i) => { const d = new Date(Date.now() - (signupVals.length - 1 - i) * 86400e3); return (d.getMonth()+1) + "/" + d.getDate(); });
+
+  // 스토리지
+  const STORAGE_TOTAL = 2e15;
+  const storageUsed = SEED_STORAGE_USED + jobs.filter(j => j.storage).reduce((a, j) => a + j.dataBytes, 0);
+  const storageRows = jobs.filter(j => j.storage).map(j => {
+    const expireAt = (j.completedAt || j.startedAt + j.demoSec * 1000) + j.storage.months * 30 * 86400e3;
+    return `<tr><td>${j.ownerName || "-"}</td><td>${j.name}</td><td>${fmtBytes(j.dataBytes)}</td><td>${j.storage.months}개월</td><td>${new Date(expireAt).toLocaleDateString("ko-KR")}</td><td><span class="dot ok"></span>보관 중</td></tr>`;
+  }).join("") + `
+    <tr><td>demo@corp.ai</td><td>ko-corpus-v3</td><td>18.2 TB</td><td>12개월</td><td>2027. 3. 15.</td><td><span class="dot ok"></span>보관 중</td></tr>
+    <tr><td>lab@vision.io</td><td>drone-imagery</td><td>6.4 TB</td><td>6개월</td><td>2026. 11. 2.</td><td><span class="dot ok"></span>보관 중</td></tr>
+    <tr><td>ml@fintech.kr</td><td>tx-logs-2025</td><td>2.1 TB</td><td>3개월</td><td>2026. 7. 21.</td><td><span class="dot warn"></span>만료 임박</td></tr>`;
+
+  // 작업 큐
+  const queueRows = jobs.length ? jobs.map(j => {
+    const p = j.status === "completed" ? 100 : Math.min(100, (Date.now() - j.startedAt) / (j.demoSec * 10)).toFixed(0);
+    return `<tr>
+      <td style="text-align:left"><b>${j.name}</b><br><small style="color:var(--muted)">${j.modelLabel}</small></td>
+      <td>${j.ownerName || "-"}</td>
+      <td><select class="mini" onchange="adminSetPriority('${j.id}', this.value)">
+        ${Object.entries(PRIORITIES).map(([k, v]) => `<option value="${k}" ${j.priority === k ? "selected" : ""}>${v.label}</option>`).join("")}
+      </select></td>
+      <td>${j.gpuName} × ${j.gpuCount}</td>
+      <td>${j.status === "running" ? p + "%" : "완료"}</td>
+      <td>${fmtNum(j.krwTotal, 0)}원</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted)">등록된 작업이 없습니다</td></tr>`;
+
+  // 최근 결제
+  const payRows = jobs.slice(0, 6).map(j =>
+    `<tr><td>${new Date(j.created).toLocaleString("ko-KR")}</td><td>${j.ownerName || "-"}</td><td style="text-align:left">${j.name}</td><td><b>${fmtNum(j.krwTotal, 0)}원</b></td><td><span class="dot ok"></span>결제 완료</td></tr>`
+  ).join("") + `
+    <tr><td>2026. 7. 6. 오후 9:12</td><td>ml@fintech.kr</td><td style="text-align:left">qwen72-risk-ft</td><td><b>4,182,300원</b></td><td><span class="dot ok"></span>결제 완료</td></tr>
+    <tr><td>2026. 7. 6. 오후 2:44</td><td>lab@vision.io</td><td style="text-align:left">vit-l-drone-cls</td><td><b>612,900원</b></td><td><span class="dot ok"></span>결제 완료</td></tr>`;
+
+  root.innerHTML = `
+  <div class="admin-head">
+    <h2>${icon("shield")} TrainLab 관리자 콘솔</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost sm" onclick="renderAdmin()">새로고침</button>
+      <button class="btn ghost sm" onclick="adminLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="stat"><div class="k">총 회원 수</div><div class="v">${fmtNum(totalUsers,0)}<small>명</small></div><div class="sub">오늘 +${signupVals[signupVals.length-1]}명</div></div>
+    <div class="stat"><div class="k">누적 학습 작업</div><div class="v">${fmtNum(3412 + jobs.length,0)}<small>건</small></div><div class="sub">실행 중 ${running + 97}건</div></div>
+    <div class="stat"><div class="k">누적 학습 연산량</div><div class="v">${fmtFlops(totalFlopsAll)[0]}<small>${fmtFlops(totalFlopsAll)[1]}</small></div><div class="sub">처리 데이터 ${fmtBytes(totalDataBytes)}</div></div>
+    <div class="stat hl"><div class="k">누적 매출 (180일)</div><div class="v">${fmtKrw(totalRev)}</div><div class="sub">오늘 ${fmtKrw(daily[daily.length-1])}</div></div>
+    <div class="stat"><div class="k">GPU 평균 가동률</div><div class="v">${avgUtil}<small>%</small></div><div class="sub">총 ${fmtNum(GPU_CLUSTERS.reduce((a,c)=>a+c.count,0),0)} GPU</div></div>
+    <div class="stat"><div class="k">스토리지 사용</div><div class="v">${fmtBytes(storageUsed)}</div><div class="sub">/ ${fmtBytes(STORAGE_TOTAL)} (${Math.round(storageUsed/STORAGE_TOTAL*100)}%)</div></div>
+  </div>
+
+  <div class="card">
+    <h2>매출 현황 <span style="margin-left:auto;display:flex;align-items:center;gap:14px">
+      <span class="chart-sum">${revTitle} 합계 ${fmtKrw(revSum)}</span>
+      <span class="seg">
+        <button class="${adminRevMode==='day'?'on':''}" onclick="setRevMode('day')">일</button>
+        <button class="${adminRevMode==='week'?'on':''}" onclick="setRevMode('week')">주</button>
+        <button class="${adminRevMode==='month'?'on':''}" onclick="setRevMode('month')">월</button>
+      </span></span></h2>
+    ${barChartSvg(revVals, revLabels)}
+  </div>
+
+  <div class="admin-2col">
+    <div class="card">
+      <h2>GPU 클러스터 사용 내역</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>클러스터</th><th>GPU</th><th>수량</th><th>가동률</th><th>실행 작업</th></tr></thead>
+        <tbody>${GPU_CLUSTERS.map(c => `<tr>
+          <td style="text-align:left"><b>${c.name}</b></td><td>${c.gpu}</td><td>${c.count}</td>
+          <td><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><div class="bar-track" style="width:70px"><div class="bar-fill" style="width:${c.util}%"></div></div>${c.util}%</div></td>
+          <td>${c.jobs}건</td></tr>`).join("")}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>회원가입 추이 (14일)</h2>
+      ${barChartSvg(signupVals, signupLabels, "명")}
+      <div class="note">총 회원 ${fmtNum(totalUsers,0)}명 · 이 브라우저 실가입 ${users.length}명 (나머지는 데모 시드)</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>작업 큐 · 처리 우선순위 <span style="color:var(--muted);font-weight:400;font-size:12px">— 우선순위를 변경하면 큐 배정 순서가 바뀝니다</span></h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>작업</th><th>소유자</th><th>우선순위</th><th>GPU</th><th>진행률</th><th>결제액</th></tr></thead>
+      <tbody>${queueRows}</tbody>
+    </table></div>
+  </div>
+
+  <div class="admin-2col">
+    <div class="card">
+      <h2>서버 노드 관리</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>노드</th><th>유형</th><th>온도</th><th>사용률</th><th>상태</th><th>액션</th></tr></thead>
+        <tbody>${ADMIN_NODES.map((nd, i) => `<tr>
+          <td style="text-align:left;font-family:var(--font-mono);font-size:12px">${nd.name}</td>
+          <td>${nd.type}</td><td>${nd.temp}°C</td><td>${nd.util}%</td>
+          <td>${nd.status === "ok" ? '<span class="dot ok"></span>정상' : '<span class="dot warn"></span>점검 중'}</td>
+          <td><button class="btn ghost sm" onclick="toggleNode(${i})">${nd.status === "ok" ? "점검 전환" : "가동 재개"}</button></td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>스토리지 관리</h2>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+        <span style="color:var(--muted)">사용량</span><b>${fmtBytes(storageUsed)} / ${fmtBytes(STORAGE_TOTAL)}</b>
+      </div>
+      <div class="gauge"><div class="fill" style="width:${Math.min(100, storageUsed/STORAGE_TOTAL*100).toFixed(1)}%"></div></div>
+      <div style="height:16px"></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>사용자</th><th>데이터셋</th><th>크기</th><th>기간</th><th>만료일</th><th>상태</th></tr></thead>
+        <tbody>${storageRows}</tbody>
+      </table></div>
+      <div class="note">만료 15일 유예 후 영구 삭제 정책이 자동 적용됩니다.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>최근 결제 내역</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>일시</th><th>회원</th><th>작업</th><th>금액</th><th>상태</th></tr></thead>
+      <tbody>${payRows}</tbody>
+    </table></div>
+  </div>
+
+  <div class="note" style="margin-top:16px">⚠️ 데모 콘솔 — 회원·작업·결제는 이 브라우저의 실데이터와 데모 시드 데이터를 합산해 표시하며, 클러스터·노드·매출 시드는 시연용 가상 데이터입니다.</div>`;
+}
 
 /* ==========================================================================
    비용 계산기 뷰 (기존 상세 계산기)
@@ -833,7 +1184,7 @@ function render() {
   updateDataLabels();
   const gpu = GPUS.find(g => g.id === calcState.gpu);
   const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1380;
+  const fx = parseFloat($("fx").value) || 1540;
 
   $("resGpuName").textContent = "— " + gpu.name + " × " + r.n;
   const [fv, fu] = fmtFlops(r.flops);
@@ -865,7 +1216,7 @@ function renderTable() {
   const tbody = document.querySelector("#cmpTable tbody");
   const rows = GPUS.map(g => ({ g, r: calc(g) }));
   const maxCost = Math.max(...rows.map(x => x.r.cost).filter(isFinite), 1e-9);
-  const fx = parseFloat($("fx").value) || 1380;
+  const fx = parseFloat($("fx").value) || 1540;
 
   let html = "", lastCat = null;
   rows.forEach(({g, r}) => {
@@ -897,7 +1248,7 @@ function renderTable() {
 function renderPartialCosts() {
   const gpu = GPUS.find(g => g.id === calcState.gpu);
   const r = calc(gpu);
-  const fx = parseFloat($("fx").value) || 1380;
+  const fx = parseFloat($("fx").value) || 1540;
   $("rCost").textContent = fmtUsd(r.cost);
   $("rCostKrw").textContent = "약 " + fmtKrw(r.cost * fx);
   $("rHourly").innerHTML = fmtUsd(r.price * r.n) + " <small>/시간</small>";
@@ -1051,7 +1402,13 @@ render();
 
 // ==================== 시작 뷰 ====================
 initIcons();
+renderAuthBox();
 goStep(1);
 syncStep1();
 const initial = (location.hash || "#home").slice(1);
-showView(["home","new","dashboard","calc"].includes(initial) ? initial : "home");
+showView(["home","new","dashboard","calc","admin"].includes(initial) ? initial : "home");
+// 주소창에서 #admin 등으로 직접 이동하는 경우 처리
+window.addEventListener("hashchange", () => {
+  const v = location.hash.slice(1);
+  if (["home","new","dashboard","calc","admin"].includes(v) && !document.querySelector("#view-" + v + ".active")) showView(v);
+});

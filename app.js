@@ -209,7 +209,35 @@ const order = {
   paramsB: 8, activeB: null, vmodelId: null,
   epochs: 1, precision: "bf16",
   gpuId: "h100", gpuCount: 8,
+  storageUse: false, storageMonths: 3,
 };
+
+// ---------- 데이터 보관 / 스토리지 서비스 ----------
+const STORAGE_KRW_PER_GB_MONTH = 40;   // 스토리지 보관료: GB당 월 40원
+const STORAGE_MIN_KRW_MONTH = 500;     // 월 최소 보관료
+const RETENTION_DAYS = 15;             // 임시 보관: 학습 완료 후 15일 뒤 영구 삭제
+
+function orderDataBytes() { return order.dataType === "text" ? order.textBytes : order.imgBytes; }
+function storageFeeKrw() {
+  if (!order.storageUse) return 0;
+  const gb = orderDataBytes() / 1e9;
+  return Math.max(STORAGE_MIN_KRW_MONTH, Math.ceil(gb * STORAGE_KRW_PER_GB_MONTH)) * order.storageMonths;
+}
+function syncStorageUI() {
+  order.storageUse = $("storageOpt").value === "paid";
+  order.storageMonths = parseInt($("storageMonths").value);
+  $("storageMonthsField").style.display = order.storageUse ? "block" : "none";
+  if (order.storageUse) {
+    const gb = orderDataBytes() / 1e9;
+    const monthly = Math.max(STORAGE_MIN_KRW_MONTH, Math.ceil(gb * STORAGE_KRW_PER_GB_MONTH));
+    $("storageFeeHint").textContent = "GB당 월 " + STORAGE_KRW_PER_GB_MONTH + "원 (최소 월 " + STORAGE_MIN_KRW_MONTH + "원) → 월 " + fmtNum(monthly,0) + "원";
+  }
+}
+$("storageOpt").addEventListener("change", syncStorageUI);
+$("storageMonths").addEventListener("change", syncStorageUI);
+
+window.openTerms = function() { $("termsModal").classList.add("show"); };
+window.closeTerms = function() { $("termsModal").classList.remove("show"); };
 
 const TEXT_EXT = ["txt","json","jsonl","csv","tsv","md","xml","html","parquet"];
 const IMG_EXT  = ["jpg","jpeg","png","webp","gif","bmp","tif","tiff"];
@@ -268,6 +296,7 @@ function syncStep1() {
   }
   const has = order.dataType && ((order.dataType === "text" && order.tokens > 0) || (order.dataType === "image" && order.samples > 0));
   $("dataSum").style.display = has ? "grid" : "none";
+  syncStorageUI();
   if (has) {
     const isText = order.dataType === "text";
     $("dsType").textContent = isText ? "📝 텍스트" : "🖼️ 이미지";
@@ -393,7 +422,12 @@ function quoteRows() {
   const [fv, fu] = fmtFlops(r.flops);
   const isText = order.dataType === "text";
   const krw = Math.round(r.cost * FX);
-  const vat = Math.round(krw * 0.1);
+  const storage = storageFeeKrw();
+  const vat = Math.round((krw + storage) * 0.1);
+  const storageRow = order.storageUse
+    ? `<div class="qrow"><small>스토리지 보관료</small><span>${fmtBytes(orderDataBytes())} × ${order.storageMonths}개월 = ${fmtNum(storage,0)}원</span></div>
+       <div class="qrow"><small>데이터 보관</small><span style="color:var(--accent)">🔒 이용 기간(${order.storageMonths}개월) 동안 안전 보관</span></div>`
+    : `<div class="qrow"><small>데이터 보관</small><span style="color:var(--warn)">임시 보관 — 학습 완료 ${RETENTION_DAYS}일 후 영구 삭제</span></div>`;
   return { g, r, html: `
     <div class="qrow"><small>데이터</small><span>${isText ? fmtTokens(order.tokens) + " (" + fmtBytes(order.textBytes) + ")" : fmtNum(order.samples,0) + "장 (" + fmtBytes(order.imgBytes) + ")"}</span></div>
     <div class="qrow"><small>작업</small><span>${TASK_LABELS[order.task]} · ${order.modelLabel} · ${order.epochs}에포크</span></div>
@@ -401,10 +435,11 @@ function quoteRows() {
     <div class="qrow"><small>GPU 구성</small><span>${g.name} × ${order.gpuCount} (${order.precision.toUpperCase()}, MFU ${Math.round(r.mfu*100)}%)</span></div>
     <div class="qrow"><small>예상 학습 시간</small><span><b>${fmtHours(r.hours)}</b></span></div>
     <div class="qrow"><small>시간당 요금</small><span>$${fmtNum(r.price * order.gpuCount, 2)} (${g.name} $${r.price} × ${order.gpuCount})</span></div>
-    <div class="qrow"><small>예상 비용</small><span>${fmtUsd(r.cost)} ≈ ${fmtNum(krw, 0)}원</span></div>
+    <div class="qrow"><small>학습 비용</small><span>${fmtUsd(r.cost)} ≈ ${fmtNum(krw, 0)}원</span></div>
+    ${storageRow}
     <div class="qrow"><small>부가세 (10%)</small><span>${fmtNum(vat, 0)}원</span></div>
-    <div class="qrow total"><span>결제 예정 금액</span><span class="amt">${fmtNum(krw + vat, 0)}원</span></div>`,
-    krwTotal: krw + vat };
+    <div class="qrow total"><span>결제 예정 금액</span><span class="amt">${fmtNum(krw + storage + vat, 0)}원</span></div>`,
+    krwTotal: krw + storage + vat, storageKrw: storage };
 }
 function renderQuote() {
   const q = quoteRows();
@@ -443,9 +478,10 @@ $("payExp").addEventListener("input", e => {
 });
 $("payCvc").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0,3); syncPayBtn(); });
 $("payAgree").addEventListener("change", syncPayBtn);
+$("payAgreeData").addEventListener("change", syncPayBtn);
 function syncPayBtn() {
   const ok = $("payCard").value.length === 19 && $("payExp").value.length === 5 &&
-             $("payCvc").value.length === 3 && $("payAgree").checked;
+             $("payCvc").value.length === 3 && $("payAgree").checked && $("payAgreeData").checked;
   $("payBtn").disabled = !ok;
 }
 $("payBtn").addEventListener("click", () => {
@@ -485,7 +521,9 @@ function resetWizard() {
   order.files = []; order.tokens = 0; order.samples = 0; order.dataType = null;
   order.textBytes = 0; order.imgBytes = 0; order.imgCount = 0;
   $("manualType").value = ""; $("fileInput").value = ""; $("jobName").value = "";
+  $("storageOpt").value = "none"; order.storageUse = false;
   $("payCard").value = ""; $("payExp").value = ""; $("payCvc").value = ""; $("payAgree").checked = false;
+  $("payAgreeData").checked = false;
   renderFileList(); syncStep1(); goStep(1);
 }
 
@@ -509,6 +547,8 @@ function createJob(q) {
     gpuName: q.g.name, gpuCount: order.gpuCount,
     precision: order.precision.toUpperCase(), mfu: Math.round(q.r.mfu * 100),
     hours: q.r.hours, costUsd: q.r.cost, krwTotal: q.krwTotal,
+    dataBytes: orderDataBytes(),
+    storage: order.storageUse ? { months: order.storageMonths, feeKrw: q.storageKrw } : null,
     flops: q.r.flops, effPflops: order.gpuCount * q.r.tflops * q.r.mfu / 1000,
     // 데모: 실제 예상시간을 40~150초로 압축
     demoSec: Math.max(40, Math.min(150, Math.round(40 + Math.log10(1 + q.r.hours) * 35))),
@@ -585,6 +625,23 @@ function logLines(job, p) {
   return lines.join("\n");
 }
 
+// 작업별 데이터 보관 상태 안내
+function retentionNotice(j) {
+  const fmtDate = ts => new Date(ts).toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric" });
+  const size = j.dataBytes ? fmtBytes(j.dataBytes) : "";
+  if (j.storage) {
+    if (j.status !== "completed")
+      return `<div class="retention stored">🔒 학습 데이터(${size}) 임시 보관 중 — 학습 완료 후 스토리지 서비스로 ${j.storage.months}개월간 안전하게 보관됩니다.</div>`;
+    const expireAt = j.completedAt + j.storage.months * 30 * 86400e3;
+    return `<div class="retention stored">🔒 스토리지 서비스 보관 중 — ${size}, ${j.storage.months}개월 (보관 만료: ${fmtDate(expireAt)}) · 이용 기간 동안 안전하게 보관되며, 만료 후 15일 유예를 거쳐 영구 삭제됩니다.</div>`;
+  }
+  if (j.status !== "completed")
+    return `<div class="retention temp">🗑️ 학습 데이터(${size})는 임시 보관 중이며, 학습이 끝난 후 삭제 조치됩니다 — 완료 15일 후 영구 삭제. 계속 보관하려면 스토리지 서비스가 필요합니다.</div>`;
+  const deleteAt = j.completedAt + RETENTION_DAYS * 86400e3;
+  const dLeft = Math.max(0, Math.ceil((deleteAt - Date.now()) / 86400e3));
+  return `<div class="retention temp">🗑️ 원본 학습 데이터(${size})는 <b>${fmtDate(deleteAt)}</b>에 영구 삭제됩니다 (D-${dLeft}). 삭제된 데이터는 복구할 수 없으며, 계속 보관하려면 스토리지 서비스를 이용하세요.</div>`;
+}
+
 function renderJobs() {
   const jobs = loadJobs();
   if (!jobs.length) {
@@ -623,6 +680,7 @@ function renderJobs() {
         <div class="js">누적 비용 (데모)<b>${fmtNum(Math.round(j.krwTotal * p), 0)}원</b></div>
         <div class="js">결제 금액<b>${fmtNum(j.krwTotal, 0)}원</b></div>
       </div>
+      ${retentionNotice(j)}
       <div style="margin-top:14px;display:flex;gap:8px">
         ${j.status === "completed" ? `<button class="btn sm" onclick="downloadModel('${j.id}')">📦 모델 다운로드</button>` : ""}
         <button class="btn ghost sm" onclick="deleteJob('${j.id}')">삭제</button>

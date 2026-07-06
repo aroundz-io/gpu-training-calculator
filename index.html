@@ -61,6 +61,12 @@
     </div>
   </div>
 
+  <div class="policybox" style="margin-bottom:30px">
+    <b>🔐 데이터 보관 정책</b> — 업로드하신 학습 데이터는 암호화되어 안전하게 <b>임시 보관</b>되며, 학습이 끝난 후에는 삭제 조치됩니다.
+    별도 스토리지 서비스(유료)를 이용하지 않으면 <b>학습 완료 15일 후 영구 삭제</b>되고, 스토리지 서비스 이용 시 <b>이용 기간 동안 안전하게 보관</b>됩니다.
+    <a class="tlink" onclick="openTerms()">이용약관 전문 보기 →</a>
+  </div>
+
   <div class="card">
     <h2>인기 GPU 시세 (온디맨드, GPU당)</h2>
     <div class="tablewrap"><table id="homePriceTable">
@@ -98,7 +104,31 @@
         <div class="stat hl"><div class="k">학습 단위 환산</div><div class="v" id="dsUnits">–</div><div class="sub" id="dsUnitsSub"></div></div>
       </div>
 
-      <div class="note" style="margin-top:18px"><b>파일이 아직 준비되지 않았다면</b> 아래에 데이터 양을 직접 입력할 수도 있습니다.</div>
+      <div class="policybox">
+        <b>📦 데이터 보관 정책</b> — 업로드한 학습 데이터는 학습 수행을 위해 <b>임시 보관</b>되며, 학습이 끝난 후에는 삭제 조치됩니다.
+        별도 스토리지 서비스를 이용하지 않으면 <b>학습 완료 15일 후 영구 삭제</b>되며, 계속 보관하려면 아래에서 유료 스토리지 서비스를 선택하세요.
+        자세한 내용은 <a class="tlink" onclick="openTerms()">이용약관</a>을 확인하세요.
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="field">
+          <span class="lbl"><b>데이터 보관 옵션</b></span>
+          <select id="storageOpt">
+            <option value="none">임시 보관 (무료) — 학습 완료 15일 후 영구 삭제</option>
+            <option value="paid">스토리지 서비스 (유료) — 이용 기간 동안 안전 보관</option>
+          </select>
+        </label>
+        <label class="field" id="storageMonthsField" style="display:none">
+          <span class="lbl"><b>보관 기간</b><span id="storageFeeHint"></span></span>
+          <select id="storageMonths">
+            <option value="1">1개월</option>
+            <option value="3" selected>3개월</option>
+            <option value="6">6개월</option>
+            <option value="12">12개월</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="note" style="margin-top:12px"><b>파일이 아직 준비되지 않았다면</b> 아래에 데이터 양을 직접 입력할 수도 있습니다.</div>
       <div class="row" style="margin-top:8px">
         <label class="field">
           <span class="lbl"><b>직접 입력 — 데이터 유형</b></span>
@@ -214,7 +244,11 @@
         </div>
         <label class="agree">
           <input type="checkbox" id="payAgree">
-          <span>이용약관 및 환불 정책에 동의합니다. 학습 시작 후에는 사용한 GPU 시간만큼 비용이 정산되며, 미사용분은 환불됩니다. <b style="color:var(--warn)">본 사이트는 데모로, 실제 결제·GPU 프로비저닝이 일어나지 않습니다.</b></span>
+          <span><a class="tlink" onclick="openTerms()">이용약관</a> 및 환불 정책에 동의합니다. 학습 시작 후에는 사용한 GPU 시간만큼 비용이 정산되며, 미사용분은 환불됩니다. <b style="color:var(--warn)">본 사이트는 데모로, 실제 결제·GPU 프로비저닝이 일어나지 않습니다.</b></span>
+        </label>
+        <label class="agree">
+          <input type="checkbox" id="payAgreeData">
+          <span><b>데이터 보관 정책에 동의합니다.</b> 업로드한 학습 데이터는 안전하게 임시 보관되고 학습이 끝난 후 삭제 조치되며, 스토리지 서비스를 이용하지 않으면 <b>학습 완료 15일 후 영구 삭제</b>됩니다. 스토리지 서비스 이용 시 이용 기간 동안 안전하게 보관됩니다.</span>
         </label>
         <button class="btn" id="payBtn" style="width:100%" disabled>결제하고 학습 시작</button>
       </div>
@@ -412,6 +446,28 @@
 
 </div><!-- /wrap -->
 
+<!-- 이용약관 모달 -->
+<div class="modal-bg" id="termsModal">
+  <div class="modal terms">
+    <h3>TrainLab 이용약관 (발췌)</h3>
+    <div class="terms-body">
+      <h4>제3조 (서비스의 제공)</h4>
+      <p>회사는 이용자가 업로드한 학습 데이터와 선택한 모델·GPU 구성에 따라 AI 모델 학습 서비스를 제공합니다. 요금은 사용한 GPU 시간을 기준으로 정산합니다.</p>
+      <h4>제4조 (학습 데이터의 보관 및 삭제)</h4>
+      <p>① 회사는 이용자가 업로드한 학습 데이터를 전송 및 저장 구간에서 암호화하여 <b>안전하게 보관</b>합니다.</p>
+      <p>② 학습 데이터는 학습 수행을 위한 목적으로만 <b>임시 보관</b>되며, 학습이 완료된 후에는 삭제 조치됩니다.</p>
+      <p>③ 임시 보관된 데이터는 학습 완료일로부터 <b>15일이 경과한 후 영구 삭제함을 원칙</b>으로 하며, 영구 삭제된 데이터는 어떠한 방법으로도 복구할 수 없습니다.</p>
+      <p>④ 이용자가 데이터를 계속 보관하고자 하는 경우 <b>별도의 스토리지 서비스</b>를 이용하여야 하며, 이 경우 보관 용량과 기간에 따른 <b>보관료</b>가 부과됩니다.</p>
+      <p>⑤ 스토리지 서비스 이용 시 데이터는 <b>이용 기간 동안 안전하게 보관</b>되며, 이용 기간이 만료되면 15일의 유예기간을 거쳐 영구 삭제됩니다. 유예기간 내 연장 결제 시 보관이 계속됩니다.</p>
+      <p>⑥ 회사는 이용자의 학습 데이터를 학습 수행 및 보관 목적 외의 용도(자체 모델 학습, 제3자 제공 등)로 사용하지 않습니다.</p>
+      <h4>제5조 (환불)</h4>
+      <p>학습 시작 후에는 사용한 GPU 시간만큼 비용이 정산되며, 미사용분은 환불됩니다. 스토리지 보관료는 개시 후 잔여 기간에 대해 일할 환불됩니다.</p>
+      <p class="terms-demo">※ 본 사이트는 서비스 구조 시연용 데모로, 위 약관은 예시이며 실제 결제·데이터 저장·법적 효력이 없습니다.</p>
+    </div>
+    <button class="btn" onclick="closeTerms()">확인</button>
+  </div>
+</div>
+
 <!-- 결제 성공 모달 -->
 <div class="modal-bg" id="payModal">
   <div class="modal">
@@ -424,7 +480,8 @@
 
 <footer>
   <div class="wrap">
-    <b style="color:var(--text)">TrainLab</b> — 온라인 AI 학습 서비스 (데모)<br>
+    <b style="color:var(--text)">TrainLab</b> — 온라인 AI 학습 서비스 (데모) · <a class="tlink" onclick="openTerms()">이용약관</a><br>
+    <b style="color:var(--text)">데이터 보관 정책</b> — 학습 데이터는 안전하게 임시 보관되고 학습 종료 후 삭제 조치되며, 스토리지 서비스 미이용 시 학습 완료 15일 후 영구 삭제됩니다. 스토리지 서비스 이용 시 이용 기간 동안 안전하게 보관됩니다.<br>
     본 사이트는 서비스 구조 시연용 데모입니다. 파일은 서버로 전송되지 않고 브라우저에서만 분석되며, 결제는 모의 처리되고 학습 진행은 예상 소요 시간을 압축한 시뮬레이션입니다.
     모든 시간·비용은 FLOPs 근사식 기반 추정치이며, GPU 시세는 2025~2026년 온디맨드 기준입니다.
   </div>

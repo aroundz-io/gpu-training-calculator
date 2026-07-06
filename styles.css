@@ -184,6 +184,21 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .agree { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--muted); margin: 14px 0; line-height: 1.6; }
 .agree input { margin-top: 3px; accent-color: var(--accent); }
 
+/* ===== 데이터 보관 정책 ===== */
+.policybox {
+  margin-top: 16px; font-size: 13px; line-height: 1.8; color: var(--muted);
+  background: rgba(79,142,247,.07); border: 1px solid rgba(79,142,247,.35);
+  border-radius: 10px; padding: 13px 16px;
+}
+.policybox b { color: var(--text); }
+.tlink { color: var(--accent2); cursor: pointer; text-decoration: underline; }
+.tlink:hover { color: var(--accent); }
+.retention {
+  margin-top: 12px; font-size: 12px; line-height: 1.7; border-radius: 8px; padding: 9px 13px;
+}
+.retention.temp { background: rgba(255,184,77,.08); border: 1px solid rgba(255,184,77,.35); color: var(--warn); }
+.retention.stored { background: rgba(118,185,0,.08); border: 1px solid rgba(118,185,0,.35); color: #b8e986; }
+
 /* ===== 모달 ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100;
@@ -197,6 +212,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .modal .big { font-size: 44px; margin-bottom: 14px; }
 .modal h3 { font-size: 19px; margin-bottom: 10px; }
 .modal p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 22px; }
+.modal.terms { max-width: 580px; text-align: left; }
+.modal.terms h3 { text-align: center; margin-bottom: 18px; }
+.terms-body { max-height: 55vh; overflow-y: auto; margin-bottom: 20px; padding-right: 8px; }
+.terms-body h4 { font-size: 14px; color: var(--accent); margin: 14px 0 6px; }
+.terms-body h4:first-child { margin-top: 0; }
+.terms-body p { font-size: 13px; margin-bottom: 8px; }
+.terms-body p b { color: var(--text); }
+.terms-body .terms-demo { color: var(--warn); margin-top: 14px; }
+.modal.terms .btn { width: 100%; }
 
 /* ===== 대시보드 ===== */
 .job {
